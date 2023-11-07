@@ -1,0 +1,15 @@
+// main.scss
+
+// Your other styles...
+
+// Set the variable for the logo width
+$logo-width: 10px; // Change this value to your desired size
+
+// Define styles for the header logo
+.logo-image {
+  img {
+    width: $logo-width;
+  }
+}
+
+// Your other styles...
