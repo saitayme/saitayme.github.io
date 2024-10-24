@@ -287,6 +287,16 @@
 
     // Remove the click event listener from the .is-active class (if needed)
     outerNav.find('.is-active').off('click');
+
+    // Toggle the outer navigation when the toggle button is clicked
+    $('.header--nav-toggle').click(function() {
+        $('.outer-nav').toggleClass('outer-nav-active');
+    });
+
+    // Close the outer navigation when a link is clicked
+    $('.outer-nav li a').click(function() {
+        $('.outer-nav').removeClass('outer-nav-active');
+    });
   });
 </script>
 
