@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { FaGamepad, FaTools } from 'react-icons/fa';
-import AnimatedGrid from '@/components/AnimatedGrid';
+
 import React from 'react';
 
 interface HomeProps {
@@ -259,7 +259,7 @@ const Home = ({ onPlayGame }: HomeProps) => {
         className="h-screen flex items-center relative overflow-hidden"
       >
         {/* Animated Grid Background */}
-        <AnimatedGrid />
+        {/* <AnimatedGrid /> */}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyber-black/50 to-cyber-black" />
 
         <div className="cyber-container relative z-10">

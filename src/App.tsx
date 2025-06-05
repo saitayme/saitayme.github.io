@@ -3,9 +3,9 @@ import { Routes, Route } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import Navbar from '@components/Navbar'
 import { initGA, usePageTracking } from '@/utils/analytics'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 // import BackgroundAnimation from '@components/BackgroundAnimation' // Temporarily disabled for performance
-import CyberGame from '@components/CyberGame'
+// import CyberGame from '@components/CyberGame' // Temporarily disabled for deployment
 import LoadingScreen from '@components/LoadingScreen'
 
 // Lazy load pages
@@ -15,7 +15,7 @@ const Projects = lazy(() => import('./pages/Projects'))
 const Contact = lazy(() => import('./pages/Contact'))
 
 const App = () => {
-  const [showGame, setShowGame] = useState(false)
+  // const [showGame, setShowGame] = useState(false) // Temporarily disabled for deployment
 
   useEffect(() => {
     // Konami code implementation
@@ -26,7 +26,7 @@ const App = () => {
       if (e.code === sequence[current]) {
         current++;
         if (current === sequence.length) {
-          setShowGame(true);
+          // setShowGame(true); // Temporarily disabled for deployment
           current = 0;
         }
       } else {
@@ -62,7 +62,7 @@ const App = () => {
           <main>
             <AnimatePresence mode="wait">
               <Routes>
-                <Route path="/" element={<Home onPlayGame={() => setShowGame(true)} />} />
+                <Route path="/" element={<Home onPlayGame={() => {}} />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/projects" element={<Projects />} />
                 <Route path="/contact" element={<Contact />} />
@@ -72,8 +72,8 @@ const App = () => {
         </Suspense>
       </div>
 
-      {/* Game Modal */}
-      <CyberGame isVisible={showGame} onClose={() => setShowGame(false)} />
+      {/* Game Modal - Temporarily disabled for deployment */}
+      {/* <CyberGame isVisible={showGame} onClose={() => setShowGame(false)} /> */}
     </div>
   )
 }

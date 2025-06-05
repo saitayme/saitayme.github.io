@@ -6,6 +6,7 @@ import { useState } from 'react';
 import ContactPanel from '@/components/ContactPanel';
 import LanguageChip from '@/components/LanguageChip';
 import SteckbriefTypewriter from '@/components/SteckbriefTypewriter';
+import InteractiveBackground from '@/components/InteractiveBackground';
 
 const fadeIn = {
   initial: { opacity: 0 },
@@ -73,7 +74,8 @@ const About = () => {
   const [showOther, setShowOther] = useState(false);
 
   return (
-    <div className="min-h-screen pt-20">
+    <div className="min-h-screen pt-20 relative">
+      <InteractiveBackground variant="grid" intensity="subtle" />
       <Section id="about" title="About Me">
         <div className="grid md:grid-cols-2 gap-12">
           {/* Steckbrief Bio Section */}

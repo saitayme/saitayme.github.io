@@ -6,6 +6,7 @@ import ProjectModal from '@/components/ProjectModal';
 import { useKonamiCode } from '@/hooks/useKonamiCode';
 import { Project } from '@/utils/types';
 import { projects, secretProjects } from '../data/projects';
+import InteractiveBackground from '@/components/InteractiveBackground';
 
 const Projects = () => {
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'Unity' | 'Unreal Engine'>('all');
@@ -26,9 +27,9 @@ const Projects = () => {
     : allProjects.filter(project => project.category === selectedCategory);
 
   return (
-    <div className="min-h-screen bg-cyber-black py-24">
+    <div className="min-h-screen py-24 relative">
+      <InteractiveBackground variant="particles" intensity="medium" />
       {/* Background Effects */}
-      <div className="fixed inset-0 cyber-grid-bg opacity-10 pointer-events-none" />
       <div className="scanline" />
 
       <div className="cyber-container">
