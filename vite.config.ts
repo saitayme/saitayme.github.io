@@ -4,7 +4,7 @@ import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: process.env.NODE_ENV === 'production' ? '/saitayme.github.io/' : '/',
+  base: '/', // Use root path for custom domain
   plugins: [react()],
   resolve: {
     alias: {

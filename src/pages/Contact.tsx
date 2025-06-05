@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion';
 import { FaItchIo, FaLinkedin, FaGithub, FaEnvelope } from 'react-icons/fa';
 import { SiSpotify, SiInstagram } from 'react-icons/si';
-
 import InteractiveBackground from '@/components/InteractiveBackground';
 
 const socialLinks = [

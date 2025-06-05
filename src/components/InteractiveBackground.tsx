@@ -130,10 +130,8 @@ const InteractiveBackground: React.FC<InteractiveBackgroundProps> = ({
           
           // Calculate distance from mouse for repulsion effect
           const mouseInfluence = 120; // pixels of influence - increased
-          const containerWidth = containerRef.current?.clientWidth || 0;
-          const containerHeight = containerRef.current?.clientHeight || 0;
-          const distanceX = (mousePos.x * containerWidth) - (baseX / 100 * containerWidth);
-          const distanceY = (mousePos.y * containerHeight) - (baseY / 100 * containerHeight);
+          const distanceX = (mousePos.x * (containerRef.current?.clientWidth || 0)) - (baseX / 100 * (containerRef.current?.clientWidth || 0));
+          const distanceY = (mousePos.y * (containerRef.current?.clientHeight || 0)) - (baseY / 100 * (containerRef.current?.clientHeight || 0));
           const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
           
           let pushX = 0;

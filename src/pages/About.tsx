@@ -80,7 +80,7 @@ const About = () => {
         <div className="grid md:grid-cols-2 gap-12">
           {/* Steckbrief Bio Section */}
           <SteckbriefTypewriter
-            portraitUrl="/assets/portrait.jpg"
+            portraitUrl="/assets/images/profile.jpg"
             name="Julian Strunz"
             profession="Game Developer & Engine Programmer"
             level="23"
