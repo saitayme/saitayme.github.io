@@ -663,17 +663,10 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     const deltaTime = Math.min(currentTime - lastTimeRef.current, 33.33);
     lastTimeRef.current = currentTime;
     
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
     updateGame(deltaTime);
-    render(ctx);
     
     animationRef.current = requestAnimationFrame(gameLoop);
-  }, [updateGame, render]);
+  }, [updateGame]);
 
   // Setup and cleanup - CRITICAL: only one game loop per instance
   useEffect(() => {
@@ -694,13 +687,32 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     
     if (!ctx) return;
     
+    // Cache the context in a ref to avoid repeated getContext calls
+    const ctxRef = useRef(ctx);
+    
+    // Optimized render function that uses cached context
+    const renderFrame = () => {
+      render(ctxRef.current);
+    };
+    
+    // Replace the render function in gameLoop to use cached context
+    const optimizedGameLoop = (currentTime: number) => {
+      const deltaTime = Math.min(currentTime - lastTimeRef.current, 33.33);
+      lastTimeRef.current = currentTime;
+      
+      updateGame(deltaTime);
+      renderFrame();
+      
+      animationRef.current = requestAnimationFrame(optimizedGameLoop);
+    };
+    
     // Add event listeners
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     
     // Start game loop
     lastTimeRef.current = performance.now();
-    animationRef.current = requestAnimationFrame(gameLoop);
+    animationRef.current = requestAnimationFrame(optimizedGameLoop);
     
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
@@ -709,7 +721,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isVisible, handleKeyDown, handleKeyUp, gameLoop]);
+  }, [isVisible, handleKeyDown, handleKeyUp, updateGame, render]);
 
   return (
     <AnimatePresence>

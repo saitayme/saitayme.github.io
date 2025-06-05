@@ -67,49 +67,31 @@ const AnimatedGrid = () => {
       ctx.lineWidth = 1;
       ctx.globalAlpha = 0.6;
 
-      // Draw fewer grid lines for better performance
-      const stepSize = CELL_SIZE;
-      
-      // Vertical lines
+      // Draw enhanced grid with beautiful glow effects and movement
+      ctx.strokeStyle = 'rgba(240, 126, 65, 0.15)'; // Restored visibility
+      ctx.shadowBlur = 8; // Restored glow
+      ctx.shadowColor = '#f07e41'; // Restored glow color
       ctx.beginPath();
-      for (let x = offset; x < canvas.width; x += stepSize) {
+      
+      // Vertical lines with movement and wave effect
+      for (let x = offset; x < canvas.width; x += CELL_SIZE) {
         const waveOffset = Math.sin(time + x * 0.005) * 2;
         ctx.moveTo(x, waveOffset);
         ctx.lineTo(x, canvas.height + waveOffset);
       }
       
-      // Use cached gradient for vertical lines
-      const verticalGradient = getOrCreateGradient('vertical', () => {
-        const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        grad.addColorStop(0, 'rgba(240, 126, 65, 0.1)');
-        grad.addColorStop(0.5, 'rgba(240, 126, 65, 0.05)');
-        grad.addColorStop(1, 'rgba(240, 126, 65, 0.1)');
-        return grad;
-      });
-      ctx.strokeStyle = verticalGradient;
-      ctx.stroke();
-
-      // Horizontal lines
-      ctx.beginPath();
-      for (let y = offset; y < canvas.height; y += stepSize) {
+      // Horizontal lines with movement and wave effect
+      for (let y = offset; y < canvas.height; y += CELL_SIZE) {
         const waveOffset = Math.sin(time + y * 0.005) * 2;
         ctx.moveTo(waveOffset, y);
         ctx.lineTo(canvas.width + waveOffset, y);
       }
       
-      // Use cached gradient for horizontal lines
-      const horizontalGradient = getOrCreateGradient('horizontal', () => {
-        const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
-        grad.addColorStop(0, 'rgba(240, 126, 65, 0.1)');
-        grad.addColorStop(0.5, 'rgba(240, 126, 65, 0.05)');
-        grad.addColorStop(1, 'rgba(240, 126, 65, 0.1)');
-        return grad;
-      });
-      ctx.strokeStyle = horizontalGradient;
       ctx.stroke();
+      ctx.shadowBlur = 0;
 
       // Reduce intersection points for performance
-      const intersectionStep = stepSize * 2;
+      const intersectionStep = CELL_SIZE * 2;
       for (let x = offset; x < canvas.width; x += intersectionStep) {
         for (let y = offset; y < canvas.height; y += intersectionStep) {
           const distanceFromCenter = Math.sqrt(

@@ -4,7 +4,7 @@ import { AnimatePresence } from 'framer-motion'
 import Navbar from '@components/Navbar'
 import { initGA, usePageTracking } from '@/utils/analytics'
 import { useEffect, useState } from 'react'
-import BackgroundAnimation from '@components/BackgroundAnimation'
+// import BackgroundAnimation from '@components/BackgroundAnimation' // Temporarily disabled for performance
 import CyberGame from '@components/CyberGame'
 import LoadingScreen from '@components/LoadingScreen'
 
@@ -16,6 +16,27 @@ const Contact = lazy(() => import('./pages/Contact'))
 
 const App = () => {
   const [showGame, setShowGame] = useState(false)
+
+  useEffect(() => {
+    // Konami code implementation
+    const sequence = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
+    let current = 0;
+
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.code === sequence[current]) {
+        current++;
+        if (current === sequence.length) {
+          setShowGame(true);
+          current = 0;
+        }
+      } else {
+        current = 0;
+      }
+    };
+
+    window.addEventListener('keydown', keyHandler);
+    return () => window.removeEventListener('keydown', keyHandler);
+  }, []);
 
   useEffect(() => {
     // Only initialize GA if we have a measurement ID
@@ -32,8 +53,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-cyber-black text-gray-100 relative">
-      {/* Background Animation */}
-      <BackgroundAnimation />
+      {/* <BackgroundAnimation /> */} {/* Disabled for performance testing */}
       
       {/* Main Content */}
       <div className="relative z-10">
