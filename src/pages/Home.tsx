@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { FaGamepad, FaTools } from 'react-icons/fa';
 import AnimatedGrid from '@/components/AnimatedGrid';
-import React, { useRef } from 'react';
+import React from 'react';
 
 interface HomeProps {
   onPlayGame: () => void;

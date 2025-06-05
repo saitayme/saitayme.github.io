@@ -27,7 +27,7 @@ const socialLinks = [
 
 const Contact = () => {
   return (
-    <Section id="contact" className="min-h-screen">
+    <Section id="contact" title="Contact" className="min-h-screen">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

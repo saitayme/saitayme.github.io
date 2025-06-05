@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { FaGithub, FaLinkedin, FaTwitter, FaItchIo } from 'react-icons/fa';
+import { FaGithub, FaLinkedin, FaItchIo } from 'react-icons/fa';
 import { trackSocialClick } from '@/utils/analytics';
 
 const Footer = () => {

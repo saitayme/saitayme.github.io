@@ -1,39 +1,11 @@
 import { motion } from 'framer-motion';
-import { DiUnitySmall, DiJava } from 'react-icons/di';
-import { SiCplusplus, SiCsharp, SiUnrealengine, SiJavascript, SiTypescript, SiPython, SiPhp, SiMysql, SiCss3, SiHtml5 } from 'react-icons/si';
-import { MdEmail, MdPhone, MdLocationOn, MdLanguage, MdMusicNote, MdGamepad, MdAudiotrack, MdMusicVideo } from 'react-icons/md';
 import Section from '@/components/Section';
-import TerminalTypewriter from '@/components/TerminalTypewriter';
 import SkillBar from '@/components/SkillBar';
 import ExperienceCard from '@/components/ExperienceCard';
 import { useState } from 'react';
 import ContactPanel from '@/components/ContactPanel';
 import LanguageChip from '@/components/LanguageChip';
 import SteckbriefTypewriter from '@/components/SteckbriefTypewriter';
-
-const skills = [
-  {
-    category: 'Core Expertise',
-    items: [
-      { name: 'Game Development', description: 'Unity & Unreal Engine, Blueprints, Multiplayer Systems, Animation' },
-      { name: 'Programming', description: 'C++, C#, Java, Python, Web Technologies' },
-      { name: 'Audio Production', description: 'FL Studio, Logic Pro, MIDI, Game Audio Design' },
-    ],
-  },
-];
-
-const languages = [
-  { name: 'German', level: 'Native' },
-  { name: 'English', level: 'Native-like' },
-  { name: 'Spanish', level: 'Basic' },
-];
-
-const contactInfo = {
-  address: 'Ziehrerstraße 18, 4020 Linz',
-  email: 'julian.strunz@hotmail.com',
-  phone: '+43 664 9145420',
-  birthDate: '18 November 2001, Italy',
-};
 
 const fadeIn = {
   initial: { opacity: 0 },

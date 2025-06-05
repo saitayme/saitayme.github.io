@@ -1,24 +1,34 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import cors from 'cors';
-import { handleContactForm } from './contact';
+import path from 'path';
 
 const app = express();
+const port = process.env.PORT || 3001;
 
-// Enable CORS for all routes
-app.use(cors());
+// CORS configuration
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://saitayme.github.io', 'https://www.saitayme.com']
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
 
-// Parse JSON bodies
-app.use(express.json());
+// Middleware
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// Log all requests
-app.use((req: Request, _res: Response, next: NextFunction) => {
-  console.log(`${req.method} ${req.path}`, {
-    body: req.body,
-    headers: req.headers
+// Serve static files in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../../dist')));
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(__dirname, '../../dist', 'index.html'));
   });
-  next();
-});
+}
 
-app.post('/api/contact', handleContactForm);
-
-export default app; 
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+  console.log(`CORS enabled for: ${corsOptions.origin.join(', ')}`);
+}); 
