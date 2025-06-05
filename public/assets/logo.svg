@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="800" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Main Gradient -->
+    <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#f07e41"/>
+      <stop offset="100%" style="stop-color:#f07e41"/>
+    </linearGradient>
+    
+    <!-- Glitch Effect -->
+    <filter id="glitch" x="-50%" y="-50%" width="200%" height="200%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+
+  <!-- Main Text -->
+  <g transform="translate(400, 400)">
+    <!-- Cyan Glitch Layer -->
+    <text x="0" y="0" 
+          font-family="Orbitron, sans-serif" 
+          font-size="60" 
+          font-weight="bold"
+          fill="#00fffc"
+          text-anchor="middle"
+          dominant-baseline="middle"
+          filter="url(#glitch)"
+          transform="translate(-2, -2)">
+      Julian Strunz
+    </text>
+    <!-- Pink Glitch Layer -->
+    <text x="0" y="0" 
+          font-family="Orbitron, sans-serif" 
+          font-size="60" 
+          font-weight="bold"
+          fill="#ff00c1"
+          text-anchor="middle"
+          dominant-baseline="middle"
+          filter="url(#glitch)"
+          transform="translate(2, 2)">
+      Julian Strunz
+    </text>
+    <!-- Main Text -->
+    <text x="0" y="0" 
+          font-family="Orbitron, sans-serif" 
+          font-size="60" 
+          font-weight="bold"
+          fill="#fcee0a"
+          text-anchor="middle"
+          dominant-baseline="middle">
+      Julian Strunz
+    </text>
+  </g>
+</svg> 

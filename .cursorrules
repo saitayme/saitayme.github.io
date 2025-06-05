@@ -1,0 +1,22 @@
+{
+  "project": "Cyberpunk Portfolio Website",
+  "description": "An interactive, cyberpunk-themed portfolio showcasing gameplay programming and engine tools.",
+  "tech_stack": ["React", "Tailwind CSS", "Framer Motion"],
+  "design_preferences": {
+    "theme": "dark",
+    "accent_color": "#f07e41",
+    "aesthetic": "cyberpunk"
+  },
+  "content_structure": {
+    "sections": ["Home", "About Me", "Projects", "Contact"],
+    "project_categories": ["Unity", "Unreal Engine"]
+  },
+  "ai_guidelines": {
+    "code_style": "clean and modular",
+    "component_structure": "reusable and scalable",
+    "prompt_examples": [
+      "Generate a responsive navbar with links to Home, About Me, Projects, and Contact.",
+      "Create a project card component with hover animations."
+    ]
+  }
+} 
