@@ -662,16 +662,26 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     animationRef.current = requestAnimationFrame(gameLoop);
   }, [updateGame, render]);
 
-  // Setup and cleanup - CRITICAL: only one game loop per instance
+  // Setup and cleanup - CRITICAL: Fix device pixel ratio performance issue
   useEffect(() => {
     if (!isVisible) return;
     
     const canvas = canvasRef.current;
     if (!canvas) return;
     
-    // Setup canvas
-    canvas.width = CANVAS_WIDTH;
-    canvas.height = CANVAS_HEIGHT;
+    // CRITICAL FIX: Handle device pixel ratio properly for performance
+    const dpr = Math.min(window.devicePixelRatio || 1, 2); // Cap at 2x for performance
+    const displayWidth = CANVAS_WIDTH;
+    const displayHeight = CANVAS_HEIGHT;
+    
+    // Set actual canvas size in memory (scaled for DPI)
+    canvas.width = displayWidth * dpr;
+    canvas.height = displayHeight * dpr;
+    
+    // Set CSS size (what user sees)
+    canvas.style.width = displayWidth + 'px';
+    canvas.style.height = displayHeight + 'px';
+    
     canvas.focus();
     
     const ctx = canvas.getContext('2d', {
@@ -680,6 +690,9 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     });
     
     if (!ctx) return;
+    
+    // Scale the drawing context so everything draws at the right size
+    ctx.scale(dpr, dpr);
     
     // Cache the context in component-level ref
     contextRef.current = ctx;
@@ -726,9 +739,9 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
               ref={canvasRef}
               className="border-2 border-primary rounded-lg focus:outline-none bg-black"
               style={{ 
-                width: `${CANVAS_WIDTH}px`, 
-                height: `${CANVAS_HEIGHT}px`,
-                imageRendering: 'auto'
+                imageRendering: 'pixelated', // Prevent blurry scaling
+                maxWidth: '100%',
+                maxHeight: '100%'
               }}
               tabIndex={0}
             />
