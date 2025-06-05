@@ -62,56 +62,56 @@ const StartupSequence = () => {
   const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const glitchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  const isMountedRef = React.useRef(true);
+  const mountedRef = React.useRef(true);
   
-  const fullText = `
-> INITIALIZING NEURAL INTERFACE...
+  // Simplified, faster text for better performance
+  const fullText = `> INITIALIZING NEURAL INTERFACE...
 > LOADING CORE MODULES...
-> ESTABLISHING SECURE CONNECTION...
-> BYPASSING SECURITY PROTOCOLS...
-> DECRYPTING DATA STREAMS...
-> ACCESSING PROFILE DATA...
+> ESTABLISHING CONNECTION...
+> BYPASSING SECURITY...
+> DECRYPTING DATA...
+> ACCESSING PROFILE...
 
 [SYSTEM STATUS]
 ---------------
 NEURAL LINK: ACTIVE
 CORE SYSTEMS: ONLINE
 SECURITY: MAXIMUM
-PROFILE: AUTHENTICATED
 
 [PROFILE DATA]
 -------------
 NAME: JULIAN STRUNZ
 ROLE: GAME & ENGINE PROGRAMMER
-SPECIALIZATION: GAMEPLAY SYSTEMS
 STATUS: ACTIVE
 
 > NEURAL INTERFACE STABILIZED
-> INITIATING PROFILE DISPLAY...
+> INITIATING DISPLAY...
 > ACCESS GRANTED_`;
 
   React.useEffect(() => {
+    mountedRef.current = true;
     let currentText = '';
     let currentIndex = 0;
 
     intervalRef.current = setInterval(() => {
-      if (!isMountedRef.current) return;
+      if (!mountedRef.current) return;
       
       if (currentIndex < fullText.length) {
         currentText += fullText[currentIndex];
         setText(currentText);
         currentIndex++;
         
-        if (Math.random() < 0.1) {
+        // Reduced glitch frequency for better performance
+        if (Math.random() < 0.03) {
           setShowGlitch(true);
           if (glitchTimeoutRef.current) {
             clearTimeout(glitchTimeoutRef.current);
           }
           glitchTimeoutRef.current = setTimeout(() => {
-            if (isMountedRef.current) {
+            if (mountedRef.current) {
               setShowGlitch(false);
             }
-          }, 150);
+          }, 80);
         }
       } else {
         if (intervalRef.current) {
@@ -119,15 +119,15 @@ STATUS: ACTIVE
           intervalRef.current = null;
         }
         timeoutRef.current = setTimeout(() => {
-          if (isMountedRef.current) {
+          if (mountedRef.current) {
             setIsComplete(true);
           }
-        }, 1000);
+        }, 800);
       }
-    }, 30);
+    }, 20); // Faster typing for quicker startup
 
     return () => {
-      isMountedRef.current = false;
+      mountedRef.current = false;
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
@@ -138,7 +138,7 @@ STATUS: ACTIVE
         clearTimeout(glitchTimeoutRef.current);
       }
     };
-  }, [fullText]);
+  }, []);
 
   if (isComplete) return null;
 
@@ -146,7 +146,7 @@ STATUS: ACTIVE
     <motion.div
       className="fixed inset-0 bg-cyber-black z-50 flex items-center justify-center"
       animate={{ opacity: 0, display: 'none' }}
-      transition={{ duration: 1.2, delay: 1.5 }}
+      transition={{ duration: 1, delay: 1.2 }}
     >
       <div className="matrix-rain" />
       <div className="relative max-w-3xl w-full mx-4">
@@ -154,9 +154,8 @@ STATUS: ACTIVE
           {text}
         </pre>
         <div className="absolute inset-0 pointer-events-none">
-          <div className="scanline opacity-30" />
+          <div className="scanline opacity-20" />
         </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-cyber-black/80 via-transparent to-cyber-black/80 pointer-events-none" />
       </div>
     </motion.div>
   );
@@ -165,19 +164,23 @@ STATUS: ACTIVE
 const TerminalText = ({ children, delay = 0 }: { children: string, delay?: number }) => {
   const [text, setText] = React.useState('');
   const [isComplete, setIsComplete] = React.useState(false);
-  const isMountedRef = React.useRef(true);
+  const [hasStarted, setHasStarted] = React.useState(false);
+  const mountedRef = React.useRef(true);
   const timerRef = React.useRef<NodeJS.Timeout | null>(null);
   const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
   React.useEffect(() => {
+    mountedRef.current = true;
+    
     timerRef.current = setTimeout(() => {
-      if (!isMountedRef.current) return;
+      if (!mountedRef.current) return;
       
+      setHasStarted(true);
       let currentText = '';
       let currentIndex = 0;
 
       intervalRef.current = setInterval(() => {
-        if (!isMountedRef.current) return;
+        if (!mountedRef.current) return;
         
         if (currentIndex < children.length) {
           currentText += children[currentIndex];
@@ -190,11 +193,11 @@ const TerminalText = ({ children, delay = 0 }: { children: string, delay?: numbe
           }
           setIsComplete(true);
         }
-      }, 50);
+      }, 45); // Slightly faster typing
     }, delay);
 
     return () => {
-      isMountedRef.current = false;
+      mountedRef.current = false;
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
@@ -203,6 +206,11 @@ const TerminalText = ({ children, delay = 0 }: { children: string, delay?: numbe
       }
     };
   }, [children, delay]);
+
+  // Don't render anything until we've started
+  if (!hasStarted) {
+    return <div className="font-mono text-primary relative min-h-[1.5em]" />;
+  }
 
   return (
     <div className="font-mono text-primary relative">
@@ -263,8 +271,8 @@ const Home = ({ onPlayGame }: HomeProps) => {
                 <GlitchText delay={3.5} initialReveal={true}>Julian Strunz</GlitchText>
                 <div className="h-12" />
                 <div className="flex flex-col items-center justify-center space-y-4">
-                  <div className="text-[#fcee0a] font-cyber tracking-[0.2em] text-2xl md:text-4xl">
-                    <TerminalText delay={4000}>{`> GAME & ENGINE PROGRAMMER_`}</TerminalText>
+                  <div className="text-[#fcee0a] font-cyber tracking-[0.2em] text-2xl md:text-4xl min-h-[3rem] flex items-center">
+                    <TerminalText delay={6000}>{`> GAME & ENGINE PROGRAMMER_`}</TerminalText>
                   </div>
                 </div>
               </h1>
@@ -273,7 +281,7 @@ const Home = ({ onPlayGame }: HomeProps) => {
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 4.5 }}
+              transition={{ duration: 0.8, delay: 7.5 }}
               className="text-gray-400 max-w-2xl mx-auto px-4 text-lg font-mono"
             >
               Crafting immersive gameplay experiences and robust engine tools
@@ -281,6 +289,9 @@ const Home = ({ onPlayGame }: HomeProps) => {
             </motion.p>
 
             <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 8 }}
               className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-6 mt-8"
             >
               <Link to="/projects">
