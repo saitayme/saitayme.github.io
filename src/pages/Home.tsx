@@ -145,8 +145,10 @@ STATUS: ACTIVE
   return (
     <motion.div
       className="fixed inset-0 bg-cyber-black z-50 flex items-center justify-center"
-      animate={{ opacity: 0, display: 'none' }}
-      transition={{ duration: 1, delay: 1.2 }}
+      initial={{ opacity: 1 }}
+      animate={{ opacity: 0 }}
+      exit={{ opacity: 0, display: 'none' }}
+      transition={{ duration: 1.5, delay: 3.5 }} // Much longer delay to see the full intro
     >
       <div className="matrix-rain" />
       <div className="relative max-w-3xl w-full mx-4">
@@ -154,7 +156,7 @@ STATUS: ACTIVE
           {text}
         </pre>
         <div className="absolute inset-0 pointer-events-none">
-          <div className="scanline opacity-20" />
+          <div className="scanline opacity-40 animate-pulse" />
         </div>
       </div>
     </motion.div>
@@ -253,7 +255,7 @@ const Home = ({ onPlayGame }: HomeProps) => {
       <motion.section
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 3 }}
+        transition={{ duration: 0.8, delay: 5.5 }} // Start after startup sequence
         className="h-screen flex items-center relative overflow-hidden"
       >
         {/* Animated Grid Background */}
