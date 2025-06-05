@@ -44,7 +44,7 @@ export const projects: Project[] = [
     id: 'scene-loader',
     title: 'Advanced Scene Loader',
     description: 'A robust scene loading framework with async loading, object pooling, and memory management. Part of the BaboonWorks Unity package.',
-    thumbnail: '/projects/scene-loader.jpg',
+    thumbnail: '/projects/scene-loader.svg',
     category: 'Unity',
     tags: ['Tool Development', 'Performance', 'Memory Management'],
     systems: [
@@ -67,7 +67,7 @@ export const projects: Project[] = [
     id: 'scriptable-reset',
     title: 'Scriptable Object Reset Tool',
     description: 'An editor tool for managing and resetting ScriptableObject values during builds, ensuring consistent behavior across development and production.',
-    thumbnail: '/projects/scriptable-reset.jpg',
+    thumbnail: '/projects/nok-sound.jpg',
     category: 'Unity',
     tags: ['Editor Tools', 'Workflow', 'Build Management'],
     systems: [
@@ -90,7 +90,7 @@ export const projects: Project[] = [
     id: 'editor-snapping',
     title: 'Editor Snapping Tool',
     description: 'A precision object placement tool for the Unity Editor, making level design and object placement more efficient.',
-    thumbnail: '/projects/editor-snapping.jpg',
+    thumbnail: '/projects/nok-sound.jpg',
     category: 'Unity',
     tags: ['Editor Tools', 'Level Design', 'Workflow'],
     systems: [
@@ -113,7 +113,7 @@ export const projects: Project[] = [
     id: 'proximity-chat',
     title: 'Photon Proximity Chat',
     description: 'A multiplayer proximity chat system built with Photon, enabling spatial voice communication in games.',
-    thumbnail: '/projects/proximity-chat.jpg',
+    thumbnail: '/projects/proximity-chat.svg',
     category: 'Unity',
     tags: ['Multiplayer', 'Networking', 'Voice Chat'],
     systems: [
@@ -237,7 +237,7 @@ export const secretProjects: Project[] = [
     id: 'baboonworks-package',
     title: 'BaboonWorks Unity Package',
     description: 'A comprehensive Unity package containing various tools and systems for game development, including advanced scene loading, editor utilities, and audio systems.',
-    thumbnail: '/projects/baboonworks.jpg',
+    thumbnail: '/projects/baboonworks.svg',
     category: 'Unity',
     tags: ['Unity Package', 'Tool Development', 'Game Systems', 'Editor Tools'],
     isSecret: true,
