@@ -130,11 +130,10 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
   const lastTimeRef = useRef<number>(0);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
   const backgroundGridRef = useRef<HTMLCanvasElement | null>(null); // Pre-rendered grid
-  const [highScore, setHighScore] = useState(0);
 
   // Initialize game state
   const gameStateRef = useRef<GameState>({
-    player: { x: 175, y: 560, width: 50, height: 20, active: true },
+    player: { x: 175, y: 560, width: 30, height: 30, active: true },
     projectiles: createProjectilePool(),
     enemies: createEnemyPool(),
     particles: createParticlePool(),
@@ -147,21 +146,15 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     keys: {},
     screenShake: 0,
     combo: 0,
-    comboTimer: 0
+    comboTimer: 0,
   });
 
-  // Load high score on mount
-  useEffect(() => {
-    setHighScore(getHighScore());
-  }, []);
-
-  // Reset game state
+  // Reset game state - FIXED: Remove state updates
   const resetGame = useCallback(() => {
     const state = gameStateRef.current;
     
     // Save high score
     saveHighScore(state.score);
-    setHighScore(getHighScore());
     
     // Reset player
     state.player.x = 175;
@@ -185,6 +178,10 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
   }, []);
 
   // Input handling
+  const handleKeyUp = useCallback((e: KeyboardEvent) => {
+    gameStateRef.current.keys[e.code] = false;
+  }, []);
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     const state = gameStateRef.current;
     
@@ -211,8 +208,25 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
           projectile.active = true;
           state.lastShot = now;
           
-          // Create muzzle flash particles
-          createMuzzleFlash(projectile.x + 2, projectile.y);
+          // Inline muzzle flash creation to avoid dependency
+          for (let i = 0; i < 3; i++) {
+            const particle = state.particles.find(p => !p.active);
+            if (!particle) break;
+            
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 30 + Math.random() * 20;
+            
+            particle.x = projectile.x + 2;
+            particle.y = projectile.y;
+            particle.vx = Math.cos(angle) * speed;
+            particle.vy = Math.sin(angle) * speed - 30;
+            particle.life = 8;
+            particle.maxLife = 8;
+            particle.size = 1 + Math.random() * 2;
+            particle.color = '#00fff9';
+            particle.type = 'spark';
+            particle.active = true;
+          }
         }
       }
     } else {
@@ -220,101 +234,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     }
   }, [resetGame]);
 
-  const handleKeyUp = useCallback((e: KeyboardEvent) => {
-    gameStateRef.current.keys[e.code] = false;
-  }, []);
 
-  // Spawn enemy with cool effects
-  const spawnEnemy = useCallback(() => {
-    const state = gameStateRef.current;
-    const enemy = state.enemies.find(e => !e.active);
-    if (enemy) {
-      enemy.x = Math.random() * (CANVAS_WIDTH - enemy.width);
-      enemy.y = -enemy.height;
-      enemy.health = 1;
-      enemy.active = true;
-      enemy.rotation = Math.random() * Math.PI * 2;
-      enemy.scale = 0.8 + Math.random() * 0.4;
-      enemy.hue = Math.random() * 60 + 300; // Purple to red range
-      
-      // Spawn particles on enemy appearance
-      createSpawnEffect(enemy.x + enemy.width/2, enemy.y + enemy.height/2);
-    }
-  }, []);
-
-  // Create muzzle flash effect
-  const createMuzzleFlash = useCallback((x: number, y: number) => {
-    const state = gameStateRef.current;
-    for (let i = 0; i < 3; i++) {
-      const particle = state.particles.find(p => !p.active);
-      if (!particle) break;
-      
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 30 + Math.random() * 20;
-      
-      particle.x = x;
-      particle.y = y;
-      particle.vx = Math.cos(angle) * speed;
-      particle.vy = Math.sin(angle) * speed - 30;
-      particle.life = 8;
-      particle.maxLife = 8;
-      particle.size = 1 + Math.random() * 2;
-      particle.color = '#00fff9';
-      particle.type = 'spark';
-      particle.active = true;
-    }
-  }, []);
-
-  // Create spawn effect
-  const createSpawnEffect = useCallback((x: number, y: number) => {
-    const state = gameStateRef.current;
-    for (let i = 0; i < 6; i++) {
-      const particle = state.particles.find(p => !p.active);
-      if (!particle) break;
-      
-      const angle = (Math.PI * 2 * i) / 6;
-      const speed = 40 + Math.random() * 20;
-      
-      particle.x = x;
-      particle.y = y;
-      particle.vx = Math.cos(angle) * speed;
-      particle.vy = Math.sin(angle) * speed;
-      particle.life = 20;
-      particle.maxLife = 20;
-      particle.size = 2 + Math.random() * 2;
-      particle.color = '#ff0066';
-      particle.type = 'explosion';
-      particle.active = true;
-    }
-  }, []);
-
-  // Create explosion particles
-  const createExplosion = useCallback((x: number, y: number, isEnemy: boolean = true) => {
-    const state = gameStateRef.current;
-    const particleCount = isEnemy ? 12 : 8;
-    
-    for (let i = 0; i < particleCount; i++) {
-      const particle = state.particles.find(p => !p.active);
-      if (!particle) break;
-      
-      const angle = (Math.PI * 2 * i) / particleCount + Math.random() * 0.5;
-      const speed = 60 + Math.random() * 40;
-      
-      particle.x = x;
-      particle.y = y;
-      particle.vx = Math.cos(angle) * speed;
-      particle.vy = Math.sin(angle) * speed;
-      particle.life = 40 + Math.random() * 20;
-      particle.maxLife = particle.life;
-      particle.size = 2 + Math.random() * 3;
-      particle.color = isEnemy ? '#ff0066' : '#f07e41';
-      particle.type = 'explosion';
-      particle.active = true;
-    }
-    
-    // Screen shake
-    state.screenShake = isEnemy ? 8 : 12;
-  }, []);
 
   // Pre-render expensive grid background once - FIX: Use useEffect to only run once
   useEffect(() => {
@@ -351,7 +271,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     }
   }, []); // Only run once on mount
 
-  // Game update loop
+  // Game update loop - FIXED: Remove all dependencies to prevent recreation
   const updateGame = useCallback((deltaTime: number) => {
     const state = gameStateRef.current;
     if (!state.gameStarted || state.gameOver) return;
@@ -415,7 +335,25 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       // Check enemy-player collision
       if (checkCollision(enemy, state.player)) {
         state.gameOver = true;
-        createExplosion(state.player.x + state.player.width / 2, state.player.y + state.player.height / 2, false);
+        // Inline explosion creation to avoid dependency
+        const particles = state.particles;
+        const x = state.player.x + state.player.width / 2;
+        const y = state.player.y + state.player.height / 2;
+        for (let i = 0; i < 20; i++) {
+          const particle = particles.find(p => !p.active);
+          if (particle) {
+            particle.x = x;
+            particle.y = y;
+            particle.vx = (Math.random() - 0.5) * 200;
+            particle.vy = (Math.random() - 0.5) * 200 - 50;
+            particle.life = 60;
+            particle.maxLife = 60;
+            particle.size = 2 + Math.random() * 3;
+            particle.color = '#f07e41';
+            particle.type = 'explosion';
+            particle.active = true;
+          }
+        }
         return;
       }
       
@@ -462,7 +400,25 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
           const points = 100 * Math.max(1, state.combo);
           state.score += points;
           
-          createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, true);
+          // Inline explosion creation to avoid dependency
+          const particles = state.particles;
+          const x = enemy.x + enemy.width / 2;
+          const y = enemy.y + enemy.height / 2;
+          for (let i = 0; i < 15; i++) {
+            const particle = particles.find(p => !p.active);
+            if (particle) {
+              particle.x = x;
+              particle.y = y;
+              particle.vx = (Math.random() - 0.5) * 150;
+              particle.vy = (Math.random() - 0.5) * 150 - 30;
+              particle.life = 45;
+              particle.maxLife = 45;
+              particle.size = 1 + Math.random() * 2;
+              particle.color = `hsl(${enemy.hue}, 100%, 60%)`;
+              particle.type = 'explosion';
+              particle.active = true;
+            }
+          }
           
           // Level progression
           if (state.score > 0 && state.score % 1000 === 0) {
@@ -472,21 +428,33 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       });
     });
     
-    // Spawn enemies
+    // Spawn enemies - inline to avoid dependency
     const now = performance.now();
     const spawnRate = Math.max(ENEMY_SPAWN_RATE - state.level * 100, 400);
     if (now - state.lastEnemySpawn > spawnRate) {
       const activeEnemies = state.enemies.filter(e => e.active).length;
       if (activeEnemies < 4) {
-        spawnEnemy();
+        const enemy = state.enemies.find(e => !e.active);
+        if (enemy) {
+          enemy.x = Math.random() * (CANVAS_WIDTH - 30);
+          enemy.y = -30;
+          enemy.width = 30;
+          enemy.height = 30;
+          enemy.health = 1;
+          enemy.rotation = 0;
+          enemy.scale = 1;
+          enemy.hue = Math.random() * 360;
+          enemy.active = true;
+        }
         state.lastEnemySpawn = now;
       }
     }
-  }, [spawnEnemy, createExplosion, createMuzzleFlash, createSpawnEffect]);
+  }, []); // NO DEPENDENCIES - This prevents constant recreation
 
-  // Enhanced render function with smart optimizations
+  // Enhanced render function - FIXED: Remove dependencies
   const render = useCallback((ctx: CanvasRenderingContext2D) => {
     const state = gameStateRef.current;
+    const currentHighScore = getHighScore(); // Get fresh high score each frame
     
     // Use pre-rendered background grid (MASSIVE performance gain)
     const bgGrid = backgroundGridRef.current;
@@ -618,8 +586,8 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       ctx.shadowColor = '#ffffff';
       ctx.fillText(`Score: ${state.score}`, 10, 25);
       ctx.fillText(`Level: ${state.level}`, 10, 45);
-      if (highScore > 0) {
-        ctx.fillText(`High: ${highScore}`, 10, 65);
+      if (currentHighScore > 0) {
+        ctx.fillText(`High: ${currentHighScore}`, 10, 65);
       }
       
       // Combo display
@@ -649,14 +617,15 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       ctx.font = '18px monospace';
       ctx.fillText(`Score: ${state.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
       
-      if (state.score > highScore) {
+      if (state.score > currentHighScore) {
         ctx.fillStyle = '#00ff00';
         ctx.shadowColor = '#00ff00';
         ctx.fillText('NEW HIGH SCORE!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 15);
-      } else if (highScore > 0) {
+        saveHighScore(state.score); // Save the high score
+      } else if (currentHighScore > 0) {
         ctx.fillStyle = '#888888';
         ctx.shadowBlur = 2; // Reduced from 3
-        ctx.fillText(`High: ${highScore}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 15);
+        ctx.fillText(`High: ${currentHighScore}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 15);
       }
       
       ctx.fillStyle = '#f07e41';
@@ -677,18 +646,18 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       ctx.fillText('Press SPACE to start', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
       ctx.fillText('← → to move, SPACE to shoot', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 15);
       
-      if (highScore > 0) {
+      if (currentHighScore > 0) {
         ctx.fillStyle = '#888888';
         ctx.shadowBlur = 2; // Reduced from 3
-        ctx.fillText(`High Score: ${highScore}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
+        ctx.fillText(`High Score: ${currentHighScore}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
       }
     }
     
     ctx.restore();
     ctx.shadowBlur = 0;
-  }, [highScore, backgroundGridRef]);
+  }, []); // NO DEPENDENCIES - This prevents constant recreation
 
-  // Main game loop
+  // Main game loop - FIXED: Stable dependencies
   const gameLoop = useCallback((currentTime: number) => {
     const deltaTime = Math.min(currentTime - lastTimeRef.current, 33.33);
     lastTimeRef.current = currentTime;
@@ -701,7 +670,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     }
     
     animationRef.current = requestAnimationFrame(gameLoop);
-  }, [updateGame, render]);
+  }, [updateGame, render]); // These are now stable
 
   // Setup and cleanup - CRITICAL: only one game loop per instance
   useEffect(() => {
