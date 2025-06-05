@@ -34,6 +34,9 @@ interface Enemy extends GameEntity {
   width: number;
   height: number;
   health: number;
+  rotation: number;
+  scale: number;
+  hue: number;
 }
 
 interface Particle extends GameEntity {
@@ -42,9 +45,8 @@ interface Particle extends GameEntity {
   life: number;
   maxLife: number;
   size: number;
-  r: number; // Pre-calculated RGB values for performance
-  g: number;
-  b: number;
+  color: string;
+  type: 'explosion' | 'spark' | 'trail';
 }
 
 interface GameState {
@@ -64,23 +66,24 @@ interface GameState {
   comboTimer: number;
 }
 
-// Optimized pools with smaller sizes
+// Optimized pools with cool effects restored
 const createProjectilePool = (): Projectile[] => {
-  return Array.from({ length: 20 }, () => ({ // Reduced from 50
-    x: 0, y: 0, width: 4, height: 8, active: false
+  return Array.from({ length: 20 }, () => ({ 
+    x: 0, y: 0, width: 4, height: 12, active: false
   }));
 };
 
 const createEnemyPool = (): Enemy[] => {
-  return Array.from({ length: 10 }, () => ({ // Reduced from 20  
-    x: 0, y: 0, width: 30, height: 30, health: 1, active: false
+  return Array.from({ length: 10 }, () => ({ 
+    x: 0, y: 0, width: 24, height: 24, health: 1, active: false,
+    rotation: 0, scale: 1, hue: 0
   }));
 };
 
 const createParticlePool = (): Particle[] => {
-  return Array.from({ length: 50 }, () => ({ // Reduced from 200
-    x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 0, size: 0, 
-    r: 255, g: 255, b: 255, active: false
+  return Array.from({ length: 100 }, () => ({ 
+    x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 60, active: false,
+    size: 2, color: '#ff0066', type: 'explosion'
   }));
 };
 
@@ -186,6 +189,26 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
           projectile.y = state.player.y;
           projectile.active = true;
           state.lastShot = now;
+          
+          // Epic muzzle flash effects
+          for (let i = 0; i < 4; i++) {
+            const particle = state.particles.find(p => !p.active);
+            if (!particle) break;
+            
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 40 + Math.random() * 30;
+            
+            particle.x = projectile.x + 2;
+            particle.y = projectile.y;
+            particle.vx = Math.cos(angle) * speed;
+            particle.vy = Math.sin(angle) * speed - 40;
+            particle.life = 12;
+            particle.maxLife = 12;
+            particle.size = 1 + Math.random() * 2;
+            particle.color = '#00fff9';
+            particle.type = 'spark';
+            particle.active = true;
+          }
         }
       }
     } else {
@@ -264,19 +287,55 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       if (projectile.y < -projectile.height) {
         projectile.active = false;
       }
+      
+      // Create cool trail particles
+      if (Math.random() < 0.4) {
+        const particle = state.particles.find(p => !p.active);
+        if (particle) {
+          particle.x = projectile.x + 2;
+          particle.y = projectile.y + 12;
+          particle.vx = (Math.random() - 0.5) * 20;
+          particle.vy = 30;
+          particle.life = 20;
+          particle.maxLife = 20;
+          particle.size = 1;
+          particle.color = '#00fff9';
+          particle.type = 'trail';
+          particle.active = true;
+        }
+      }
     }
     
-    // Update enemies
+    // Update enemies with awesome animations
     for (let i = 0; i < state.enemies.length; i++) {
       const enemy = state.enemies[i];
       if (!enemy.active) continue;
       
       enemy.y += ENEMY_SPEED * dt;
+      enemy.rotation += dt * 2.5; // Spinning effect
+      enemy.scale = 0.9 + Math.sin(performance.now() * 0.005 + enemy.hue) * 0.2; // Pulsing effect
       
       // Player collision check
       if (checkCollision(enemy, state.player)) {
         state.gameOver = true;
-        state.screenShake = 15;
+        state.screenShake = 20;
+        
+        // Epic explosion when player dies
+        for (let j = 0; j < 25; j++) {
+          const particle = state.particles.find(p => !p.active);
+          if (particle) {
+            particle.x = state.player.x + state.player.width / 2;
+            particle.y = state.player.y + state.player.height / 2;
+            particle.vx = (Math.random() - 0.5) * 300;
+            particle.vy = (Math.random() - 0.5) * 300 - 80;
+            particle.life = 80;
+            particle.maxLife = 80;
+            particle.size = 2 + Math.random() * 4;
+            particle.color = '#f07e41';
+            particle.type = 'explosion';
+            particle.active = true;
+          }
+        }
         return;
       }
       
@@ -285,13 +344,19 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       }
     }
     
-    // Update particles (minimal)
+    // Update particles with awesome physics
     for (let i = 0; i < state.particles.length; i++) {
       const particle = state.particles[i];
       if (!particle.active) continue;
       
       particle.x += particle.vx * dt;
       particle.y += particle.vy * dt;
+      
+      // Apply gravity to explosion particles
+      if (particle.type === 'explosion') {
+        particle.vy += 200 * dt;
+      }
+      
       particle.life--;
       
       if (particle.life <= 0) {
@@ -321,22 +386,23 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
           state.comboTimer = 1500;
           
           state.score += 100 * Math.max(1, state.combo);
-          state.screenShake = 3;
+          state.screenShake = 5;
           
-          // Minimal explosion effect
-          const particle = state.particles.find(p => !p.active);
-          if (particle) {
-            particle.x = enemy.x + 15;
-            particle.y = enemy.y + 15;
-            particle.vx = 0;
-            particle.vy = 0;
-            particle.life = 20;
-            particle.maxLife = 20;
-            particle.size = 8;
-            particle.r = 240;
-            particle.g = 126;
-            particle.b = 65;
-            particle.active = true;
+          // Epic explosion effect
+          for (let j = 0; j < 15; j++) {
+            const particle = state.particles.find(p => !p.active);
+            if (particle) {
+              particle.x = enemy.x + enemy.width / 2;
+              particle.y = enemy.y + enemy.height / 2;
+              particle.vx = (Math.random() - 0.5) * 200;
+              particle.vy = (Math.random() - 0.5) * 200 - 50;
+              particle.life = 50;
+              particle.maxLife = 50;
+              particle.size = 1 + Math.random() * 3;
+              particle.color = `hsl(${enemy.hue}, 100%, 60%)`;
+              particle.type = 'explosion';
+              particle.active = true;
+            }
           }
           
           // Level progression
@@ -360,6 +426,9 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
           enemy.x = Math.random() * (CANVAS_WIDTH - 30);
           enemy.y = -30;
           enemy.active = true;
+          enemy.rotation = Math.random() * Math.PI * 2;
+          enemy.scale = Math.random() * 0.5 + 0.5;
+          enemy.hue = Math.floor(Math.random() * 360);
         }
         state.lastEnemySpawn = now;
       }
@@ -379,7 +448,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
     
-    // Minimal screen shake
+    // Screen shake with awesome effects
     ctx.save();
     if (state.screenShake > 0) {
       const shakeX = (Math.random() - 0.5) * state.screenShake;
@@ -388,40 +457,115 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     }
     
     if (state.gameStarted && !state.gameOver) {
-      // Draw particles (minimal, no glow)
-      for (let i = 0; i < state.particles.length; i++) {
-        const particle = state.particles[i];
-        if (!particle.active) continue;
-        
+      // Draw particles with beautiful glow effects
+      state.particles.forEach(particle => {
+        if (!particle.active) return;
         const alpha = particle.life / particle.maxLife;
-        ctx.fillStyle = `rgba(${particle.r}, ${particle.g}, ${particle.b}, ${alpha})`;
-        ctx.fillRect(particle.x - particle.size/2, particle.y - particle.size/2, particle.size, particle.size);
-      }
+        
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = particle.color;
+        
+        // Awesome glow effects
+        if (alpha > 0.3) {
+          ctx.shadowBlur = particle.size * 3;
+          ctx.shadowColor = particle.color;
+        }
+        
+        if (particle.type === 'spark') {
+          // Draw sparks as lines with trails
+          ctx.strokeStyle = particle.color;
+          ctx.lineWidth = particle.size;
+          ctx.beginPath();
+          ctx.moveTo(particle.x, particle.y);
+          ctx.lineTo(particle.x - particle.vx * 0.1, particle.y - particle.vy * 0.1);
+          ctx.stroke();
+        } else {
+          // Draw explosions and trails as glowing circles
+          ctx.beginPath();
+          ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
       
-      // Draw projectiles (simple rectangles)
+      // Draw projectiles with awesome glow
       ctx.fillStyle = '#00fff9';
-      for (let i = 0; i < state.projectiles.length; i++) {
-        const projectile = state.projectiles[i];
-        if (!projectile.active) continue;
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = '#00fff9';
+      state.projectiles.forEach(projectile => {
+        if (!projectile.active) return;
         ctx.fillRect(projectile.x, projectile.y, projectile.width, projectile.height);
-      }
+      });
+      ctx.shadowBlur = 0;
       
-      // Draw enemies (simple rectangles)
-      ctx.fillStyle = '#ff4444';
-      for (let i = 0; i < state.enemies.length; i++) {
-        const enemy = state.enemies[i];
-        if (!enemy.active) continue;
-        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-      }
+      // Draw enemies with cool effects
+      state.enemies.forEach(enemy => {
+        if (!enemy.active) return;
+        
+        ctx.save();
+        ctx.translate(enemy.x + enemy.width/2, enemy.y + enemy.height/2);
+        ctx.rotate(enemy.rotation);
+        ctx.scale(enemy.scale, enemy.scale);
+        
+        // Amazing enemy glow
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = `hsl(${enemy.hue}, 100%, 50%)`;
+        ctx.fillStyle = `hsl(${enemy.hue}, 100%, 50%)`;
+        
+        // Draw diamond shape
+        ctx.beginPath();
+        ctx.moveTo(0, -enemy.height/2);
+        ctx.lineTo(enemy.width/2, 0);
+        ctx.lineTo(0, enemy.height/2);
+        ctx.lineTo(-enemy.width/2, 0);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Add inner glow details
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+      });
       
-      // Draw player (simple rectangle)
+      // Draw player with epic ship design
+      ctx.save();
+      ctx.translate(state.player.x + state.player.width/2, state.player.y + state.player.height/2);
+      
+      // Epic player glow
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#f07e41';
       ctx.fillStyle = '#f07e41';
-      ctx.fillRect(state.player.x, state.player.y, state.player.width, state.player.height);
       
-      // UI (minimal)
+      // Draw awesome ship shape
+      ctx.beginPath();
+      ctx.moveTo(0, -state.player.height/2);
+      ctx.lineTo(-state.player.width/2, state.player.height/2);
+      ctx.lineTo(-state.player.width/4, state.player.height/3);
+      ctx.lineTo(state.player.width/4, state.player.height/3);
+      ctx.lineTo(state.player.width/2, state.player.height/2);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Add engine glow effects
+      ctx.fillStyle = '#00fff9';
+      ctx.shadowColor = '#00fff9';
+      ctx.fillRect(-6, state.player.height/3, 3, 8);
+      ctx.fillRect(3, state.player.height/3, 3, 8);
+      
+      ctx.restore();
+      ctx.shadowBlur = 0;
+      
+      // Enhanced UI with beautiful glow
       ctx.fillStyle = '#ffffff';
       ctx.font = '16px monospace';
       ctx.textAlign = 'left';
+      ctx.shadowBlur = 3;
+      ctx.shadowColor = '#ffffff';
       ctx.fillText(`Score: ${state.score}`, 10, 25);
       ctx.fillText(`Level: ${state.level}`, 10, 45);
       
@@ -429,15 +573,20 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         ctx.fillText(`High: ${highScoreRef.current}`, 10, 65);
       }
       
+      // Combo display with epic glow
       if (state.combo > 1) {
         ctx.fillStyle = '#f07e41';
         ctx.font = 'bold 20px monospace';
         ctx.textAlign = 'center';
+        ctx.shadowColor = '#f07e41';
+        ctx.shadowBlur = 8;
         ctx.fillText(`${state.combo}x COMBO!`, HALF_CANVAS_WIDTH, 80);
       }
+      
+      ctx.shadowBlur = 0;
     }
     
-    // Game states (minimal)
+    // Game states with epic glow
     if (state.gameOver) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -445,19 +594,24 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       ctx.fillStyle = '#f07e41';
       ctx.font = '28px monospace';
       ctx.textAlign = 'center';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#f07e41';
       ctx.fillText('GAME OVER', HALF_CANVAS_WIDTH, HALF_CANVAS_HEIGHT - 40);
       ctx.font = '18px monospace';
       ctx.fillText(`Score: ${state.score}`, HALF_CANVAS_WIDTH, HALF_CANVAS_HEIGHT - 10);
       
       if (state.score > highScoreRef.current) {
         ctx.fillStyle = '#00ff00';
+        ctx.shadowColor = '#00ff00';
         ctx.fillText('NEW HIGH SCORE!', HALF_CANVAS_WIDTH, HALF_CANVAS_HEIGHT + 15);
       } else if (highScoreRef.current > 0) {
         ctx.fillStyle = '#888888';
+        ctx.shadowBlur = 3;
         ctx.fillText(`High: ${highScoreRef.current}`, HALF_CANVAS_WIDTH, HALF_CANVAS_HEIGHT + 15);
       }
       
       ctx.fillStyle = '#f07e41';
+      ctx.shadowColor = '#f07e41';
       ctx.fillText('Press SPACE to restart', HALF_CANVAS_WIDTH, HALF_CANVAS_HEIGHT + 50);
     } else if (!state.gameStarted) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
@@ -466,29 +620,43 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       ctx.fillStyle = '#f07e41';
       ctx.font = '24px monospace';
       ctx.textAlign = 'center';
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = '#f07e41';
       ctx.fillText('CYBER DEFENDER', HALF_CANVAS_WIDTH, HALF_CANVAS_HEIGHT - 40);
       ctx.font = '16px monospace';
+      ctx.shadowBlur = 6;
       ctx.fillText('Press SPACE to start', HALF_CANVAS_WIDTH, HALF_CANVAS_HEIGHT - 10);
       ctx.fillText('← → to move, SPACE to shoot', HALF_CANVAS_WIDTH, HALF_CANVAS_HEIGHT + 15);
       
       if (highScoreRef.current > 0) {
         ctx.fillStyle = '#888888';
+        ctx.shadowBlur = 3;
         ctx.fillText(`High Score: ${highScoreRef.current}`, HALF_CANVAS_WIDTH, HALF_CANVAS_HEIGHT + 50);
       }
     }
     
     ctx.restore();
+    ctx.shadowBlur = 0;
   }, []);
 
-  // OPTIMIZED GAME LOOP
+  // OPTIMIZED GAME LOOP with performance monitoring
   const gameLoop = useCallback((currentTime: number) => {
     const deltaTime = Math.min(currentTime - lastTimeRef.current, 33.33);
     lastTimeRef.current = currentTime;
+    
+    // Performance debugging
+    const startTime = performance.now();
     
     updateGame(deltaTime);
     
     if (contextRef.current) {
       render(contextRef.current);
+    }
+    
+    // Log performance if it's bad
+    const frameTime = performance.now() - startTime;
+    if (frameTime > 16) { // Over 60 FPS budget
+      console.warn(`Slow frame: ${frameTime.toFixed(2)}ms (should be <16ms for 60fps)`);
     }
     
     animationRef.current = requestAnimationFrame(gameLoop);
