@@ -62,11 +62,10 @@ const CANVAS_HEIGHT = 600;
 const TARGET_FPS = 60;
 const FRAME_TIME = 1000 / TARGET_FPS;
 const MAX_FRAME_TIME = FRAME_TIME * 2;
-const MAX_PARTICLES = 50;
+const MAX_PARTICLES = 30; // Reduced from 50
 
 // Pre-render common game elements
 const createOffscreenElements = () => {
-  // Pre-render projectile with simple glow
   const projectileCanvas = document.createElement('canvas');
   projectileCanvas.width = 6;
   projectileCanvas.height = 14;
@@ -77,18 +76,15 @@ const createOffscreenElements = () => {
   projectileCtx.shadowBlur = 8;
   projectileCtx.fillRect(1, 1, 4, 12);
 
-  // Pre-render enemy with glitchy, unsettling style
   const enemyCanvas = document.createElement('canvas');
   enemyCanvas.width = 32;
   enemyCanvas.height = 32;
   const enemyCtx = enemyCanvas.getContext('2d') as CanvasRenderingContext2D;
   
-  // Draw glitchy base
   enemyCtx.fillStyle = '#ff0066';
   enemyCtx.shadowColor = '#ff0066';
   enemyCtx.shadowBlur = 8;
   
-  // Draw distorted shape
   enemyCtx.beginPath();
   enemyCtx.moveTo(4, 16);
   enemyCtx.lineTo(16, 4);
@@ -97,7 +93,6 @@ const createOffscreenElements = () => {
   enemyCtx.closePath();
   enemyCtx.fill();
 
-  // Add glitch lines
   enemyCtx.strokeStyle = '#ffffff';
   enemyCtx.lineWidth = 1;
   for (let i = 0; i < 3; i++) {
@@ -108,7 +103,6 @@ const createOffscreenElements = () => {
     enemyCtx.stroke();
   }
 
-  // Add "eye" effect
   enemyCtx.fillStyle = '#ffffff';
   enemyCtx.beginPath();
   enemyCtx.arc(16, 16, 3, 0, Math.PI * 2);
@@ -120,38 +114,80 @@ const createOffscreenElements = () => {
   };
 };
 
-// Store pre-rendered elements
-const offscreenElements = createOffscreenElements();
+// Store pre-rendered elements globally to prevent recreation
+let offscreenElements: { projectile: HTMLCanvasElement; enemy: HTMLCanvasElement } | null = null;
 
-// Pre-allocate object pools
-const POOL_SIZE = 30;
-const projectilePool: GameObject[] = Array(POOL_SIZE).fill(null).map(() => ({
-  x: 0, y: 0, width: 4, height: 12, speed: 8, color: '#00fff9', active: false
-}));
+// Object pools - keep them small and manageable
+const POOL_SIZE = 15; // Reduced from 30
+const projectilePool: GameObject[] = [];
+const enemyPool: GameObject[] = [];
+const particlePool: Particle[] = [];
 
-const enemyPool: GameObject[] = Array(POOL_SIZE).fill(null).map(() => ({
-  x: 0, y: 0, width: 24, height: 24, speed: 2, color: '#ff0066', active: false,
-  rotation: 0, scale: 1, lastDirectionChange: 0,
-  originalX: 0, phaseOffset: Math.random() * Math.PI * 2,
-  targetX: 0,
-  moveSpeed: 0
-}));
+// Initialize pools only once
+const initializePools = () => {
+  if (projectilePool.length === 0) {
+    for (let i = 0; i < POOL_SIZE; i++) {
+      projectilePool.push({
+        x: 0, y: 0, width: 4, height: 12, speed: 8, color: '#00fff9', active: false
+      });
+      enemyPool.push({
+        x: 0, y: 0, width: 24, height: 24, speed: 2, color: '#ff0066', active: false,
+        rotation: 0, scale: 1, lastDirectionChange: 0,
+        originalX: 0, phaseOffset: Math.random() * Math.PI * 2,
+        targetX: 0, moveSpeed: 0
+      });
+    }
+  }
+  
+  if (particlePool.length === 0) {
+    for (let i = 0; i < MAX_PARTICLES; i++) {
+      particlePool.push({
+        x: 0, y: 0, width: 4, height: 4, speed: 0, color: '#ff0066',
+        dx: 0, dy: 0, life: 0, maxLife: 60, active: false, type: 'cube'
+      });
+    }
+  }
+};
 
-// Particle pool
-const particlePool: Particle[] = Array(MAX_PARTICLES).fill(null).map(() => ({
-  x: 0, y: 0, width: 4, height: 4, speed: 0, color: '#ff0066',
-  dx: 0, dy: 0, life: 0, maxLife: 60, active: false, type: 'cube'
-}));
+// Reset all pools
+const resetPools = () => {
+  projectilePool.forEach(p => {
+    p.active = false;
+    p.x = 0;
+    p.y = 0;
+  });
+  
+  enemyPool.forEach(e => {
+    e.active = false;
+    e.x = 0;
+    e.y = 0;
+    e.rotation = 0;
+    e.scale = 1;
+    e.lastDirectionChange = 0;
+    e.originalX = 0;
+    e.targetX = 0;
+    e.moveSpeed = 0;
+  });
+  
+  particlePool.forEach(p => {
+    p.active = false;
+    p.life = 0;
+  });
+};
 
-// Pre-render patterns
+// Pre-render patterns with caching
+let gridPatternCache: HTMLCanvasElement | null = null;
+
 const createGridPattern = (width: number, height: number) => {
+  if (gridPatternCache) return gridPatternCache;
+  
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
   if (!ctx) return null;
 
-  ctx.strokeStyle = 'rgba(240, 126, 65, 0.1)';
+  ctx.strokeStyle = 'rgba(240, 126, 65, 0.08)'; // Reduced opacity
   ctx.beginPath();
   for (let x = 0; x < width; x += 40) {
     ctx.moveTo(x, 0);
@@ -162,6 +198,8 @@ const createGridPattern = (width: number, height: number) => {
     ctx.lineTo(width, y);
   }
   ctx.stroke();
+  
+  gridPatternCache = canvas;
   return canvas;
 };
 
@@ -170,6 +208,9 @@ const POWERUP_COLORS = {
   shield: '#4444ff',
   timeslow: '#ff00ff'
 };
+
+// LocalStorage keys
+const HIGH_SCORE_KEY = 'cyberDefender_highScore';
 
 const createGameState = (): GameState => ({
   player: {
@@ -206,23 +247,66 @@ const createGameState = (): GameState => ({
   comboMultiplier: 1
 });
 
+// Save/load high score
+const getHighScore = (): number => {
+  try {
+    return parseInt(localStorage.getItem(HIGH_SCORE_KEY) || '0', 10);
+  } catch {
+    return 0;
+  }
+};
+
+const saveHighScore = (score: number): void => {
+  try {
+    const currentHigh = getHighScore();
+    if (score > currentHigh) {
+      localStorage.setItem(HIGH_SCORE_KEY, score.toString());
+    }
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => void }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
+  const [highScore, setHighScore] = useState(0);
   const gameStateRef = useRef<GameState>(createGameState());
+  const frameIdRef = useRef<number>(0);
+  const isInitializedRef = useRef(false);
 
   // Time-based movement constants
   const BASE_SPEED = 240; // pixels per second
   const PROJECTILE_SPEED = 480; // pixels per second
   const ENEMY_BASE_SPEED = 120; // pixels per second
 
+  // Initialize everything only once
+  useEffect(() => {
+    if (!isInitializedRef.current) {
+      initializePools();
+      if (!offscreenElements) {
+        offscreenElements = createOffscreenElements();
+      }
+      setHighScore(getHighScore());
+      isInitializedRef.current = true;
+    }
+  }, []);
+
   const resetGame = useCallback(() => {
     console.log('Resetting game...');
-    // Create a completely fresh game state
+    
+    // Save high score if needed
+    const currentScore = gameStateRef.current.score;
+    saveHighScore(currentScore);
+    setHighScore(getHighScore());
+    
+    // Clean up old state
+    resetPools();
+    
+    // Create fresh game state
     gameStateRef.current = createGameState();
     
-    // Reset game stats
     setGameOver(false);
     setGameStarted(true);
     
@@ -230,8 +314,6 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
   }, []);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    console.log('Key pressed:', e.code, 'gameStarted:', gameStarted, 'gameOver:', gameOver);
-    
     if (e.code === 'Space') {
       e.preventDefault();
       
@@ -283,7 +365,6 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     
     if (!ctx) return;
 
-    // Enable image smoothing for better visual quality
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
@@ -292,18 +373,15 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     canvas.focus();
 
     const gridPattern = createGridPattern(CANVAS_WIDTH, CANVAS_HEIGHT);
-    let frameId: number;
 
     const updatePhysics = (deltaTime: number) => {
       const state = gameStateRef.current;
-      const timeStep = deltaTime / 1000; // Convert to seconds
+      const timeStep = deltaTime / 1000;
       
-      // Update screen shake
       if (state.screenShake > 0) {
         state.screenShake *= 0.9;
       }
       
-      // Move player with time-based movement
       const moveSpeed = BASE_SPEED * timeStep;
       if (state.keysPressed.has('ArrowLeft') && state.player.x > 0) {
         state.player.x -= moveSpeed;
@@ -312,7 +390,6 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         state.player.x += moveSpeed;
       }
 
-      // Update projectiles with time-based movement
       const projectileSpeed = PROJECTILE_SPEED * timeStep;
       projectilePool.forEach(projectile => {
         if (!projectile.active) return;
@@ -320,65 +397,56 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         if (projectile.y < 0) projectile.active = false;
       });
 
-      // Update particles with time-based movement
-      particlePool.forEach(particle => {
-        if (!particle.active) return;
+      // Update active particles only
+      const activeParticles = particlePool.filter(p => p.active);
+      activeParticles.forEach(particle => {
         particle.x += particle.dx * timeStep * 60;
         particle.y += particle.dy * timeStep * 60;
         particle.life--;
         if (particle.type === 'cube') {
-          particle.dy += 9.8 * timeStep; // Gravity in pixels/second²
+          particle.dy += 9.8 * timeStep;
         }
         if (particle.life <= 0) {
           particle.active = false;
         }
       });
 
-      // Update enemies with time-based movement
-      enemyPool.forEach(enemy => {
-        if (!enemy.active) return;
-        
-        // Initialize enemy properties when spawning
+      // Update active enemies only
+      const activeEnemies = enemyPool.filter(e => e.active);
+      activeEnemies.forEach(enemy => {
         if (enemy.originalX === undefined) {
           enemy.originalX = enemy.x;
           enemy.targetX = enemy.x;
           enemy.moveSpeed = 0;
         }
 
-        // Vertical movement with slight wavering
         const timeScale = state.activeEffects.timeslow > 0 ? 0.5 : 1;
         enemy.y += enemy.speed * timeScale * (1 + Math.sin(timeStep * 2 + enemy.phaseOffset!) * 0.1);
 
-        // Occasionally pick new target position
         if (timeStep - (enemy.lastDirectionChange || 0) > 1.5 + Math.random()) {
-          // Target player's x position with some randomness
           const playerX = state.player.x + state.player.width / 2;
           enemy.targetX = Math.max(20, Math.min(CANVAS_WIDTH - 20, 
             playerX + (Math.random() - 0.5) * 100));
           enemy.lastDirectionChange = timeStep;
         }
 
-        // Smooth movement towards target
         const dx = (enemy.targetX ?? 0) - enemy.x;
         const targetSpeed = Math.sign(dx) * Math.min(Math.abs(dx), 2) * 60;
         enemy.moveSpeed = (enemy.moveSpeed ?? 0) * 0.9 + targetSpeed * 0.1;
         enemy.x += enemy.moveSpeed * timeStep;
 
-        // Keep within bounds
         enemy.x = Math.max(0, Math.min(CANVAS_WIDTH - enemy.width, enemy.x));
 
-        // Creepy rotation based on movement
-        const rotationTarget = enemy.moveSpeed * 0.01; // Tilt based on movement direction
+        const rotationTarget = enemy.moveSpeed * 0.01;
         enemy.rotation = (enemy.rotation || 0) * 0.9 + rotationTarget * 0.1;
         
-        // Unsettling scale pulsing
         const scaleFreq = 4;
         const scaleAmp = 0.1;
         enemy.scale = 1 + Math.sin(timeStep * scaleFreq + (enemy.phaseOffset || 0)) * scaleAmp;
 
-        // Check collisions with projectiles
-        projectilePool.forEach(projectile => {
-          if (!projectile.active) return;
+        // Check collisions with active projectiles only
+        const activeProjectiles = projectilePool.filter(p => p.active);
+        activeProjectiles.forEach(projectile => {
           if (checkCollision(projectile, enemy)) {
             projectile.active = false;
             enemy.active = false;
@@ -392,14 +460,12 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
           }
         });
 
-        // Check collision with player
         if (checkCollision(state.player, enemy)) {
           setGameOver(true);
           createExplosion(state.player.x + state.player.width/2, state.player.y + state.player.height/2, state.player.color);
           return;
         }
 
-        // Check if enemy passed the bottom
         if (enemy.y > CANVAS_HEIGHT) {
           enemy.active = false;
           setGameOver(true);
@@ -408,10 +474,10 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         }
       });
 
-      // Spawn enemies with time-based intervals
+      // Spawn enemies with throttling
       const spawnInterval = Math.max(1000 - state.level * 50, 400);
-      if (enemyPool.filter(e => e.active).length < 3 && 
-          performance.now() - state.lastEnemySpawn > spawnInterval) {
+      const activeEnemyCount = enemyPool.filter(e => e.active).length;
+      if (activeEnemyCount < 3 && performance.now() - state.lastEnemySpawn > spawnInterval) {
         const enemy = enemyPool.find(e => !e.active);
         if (enemy) {
           enemy.active = true;
@@ -425,7 +491,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         }
       }
 
-      // Update combo timer
+      // Update timers
       if (state.combo > 0) {
         state.comboTimer -= deltaTime;
         if (state.comboTimer <= 0) {
@@ -434,7 +500,6 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         }
       }
 
-      // Update power-up effects
       if (state.activeEffects.rapidfire > 0) {
         state.activeEffects.rapidfire -= deltaTime;
       }
@@ -442,118 +507,27 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         state.activeEffects.timeslow -= deltaTime;
       }
 
-      // Update power-ups
-      state.powerups.forEach(powerup => {
-        if (!powerup.active) return;
+      // Update active powerups only
+      state.powerups = state.powerups.filter(powerup => {
+        if (!powerup.active) return false;
+        
         powerup.y += 100 * timeStep;
         powerup.rotation = (powerup.rotation || 0) + 2 * timeStep;
         
-        // Check collision with player
         if (checkCollision(state.player, powerup)) {
           powerup.active = false;
           activatePowerup(powerup.powerupType!);
           createPowerupEffect(powerup.x, powerup.y, powerup.color);
+          return false;
         }
 
         if (powerup.y > CANVAS_HEIGHT) {
           powerup.active = false;
+          return false;
         }
+        
+        return true;
       });
-    };
-
-    // Pre-allocate arrays for active particles
-    const activeParticles = {
-      cubes: [] as Particle[],
-      sparks: [] as Particle[]
-    };
-
-    const updateParticles = (timeStep: number) => {
-      // Clear active particle arrays
-      activeParticles.cubes.length = 0;
-      activeParticles.sparks.length = 0;
-      
-      // Update and sort particles into active arrays
-      particlePool.forEach(particle => {
-        if (!particle.active) return;
-        
-        // Update particle position and life
-        particle.x += particle.dx * timeStep * 60;
-        particle.y += particle.dy * timeStep * 60;
-        particle.life--;
-        
-        if (particle.type === 'cube') {
-          // Add gravity and bounce effect
-          particle.dy += 20 * timeStep; // Increased gravity for snappier bounces
-          
-          // Ground bounce
-          if (particle.y > CANVAS_HEIGHT - particle.height) {
-            particle.y = CANVAS_HEIGHT - particle.height;
-            particle.dy = -particle.dy * 0.5; // More energy loss for quicker settling
-            particle.dx *= 0.75; // More friction
-          }
-          
-          // Wall bounce
-          if (particle.x < 0) {
-            particle.x = 0;
-            particle.dx = -particle.dx * 0.5;
-          } else if (particle.x > CANVAS_WIDTH - particle.width) {
-            particle.x = CANVAS_WIDTH - particle.width;
-            particle.dx = -particle.dx * 0.5;
-          }
-          
-          if (particle.active) {
-            activeParticles.cubes.push(particle);
-          }
-        } else if (particle.type === 'spark') {
-          if (particle.active) {
-            activeParticles.sparks.push(particle);
-          }
-        }
-        
-        if (particle.life <= 0) {
-          particle.active = false;
-        }
-      });
-    };
-
-    const renderParticles = (ctx: CanvasRenderingContext2D) => {
-      // Batch render cube particles
-      if (activeParticles.cubes.length > 0) {
-        ctx.shadowBlur = 8;
-        activeParticles.cubes.forEach(particle => {
-          const alpha = particle.life / particle.maxLife;
-          ctx.globalAlpha = alpha;
-          ctx.shadowColor = particle.color;
-          ctx.fillStyle = particle.color;
-          ctx.fillRect(
-            Math.floor(particle.x),
-            Math.floor(particle.y),
-            particle.width,
-            particle.height
-          );
-        });
-      }
-      
-      // Batch render spark particles
-      if (activeParticles.sparks.length > 0) {
-        ctx.shadowBlur = 8;
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        activeParticles.sparks.forEach(particle => {
-          const alpha = particle.life / particle.maxLife;
-          ctx.globalAlpha = alpha;
-          ctx.moveTo(particle.x, particle.y);
-          ctx.lineTo(
-            particle.x - particle.dx * 2,
-            particle.y - particle.dy * 2
-          );
-        });
-        ctx.stroke();
-      }
-      
-      ctx.globalAlpha = 1;
-      ctx.shadowBlur = 0;
     };
 
     const render = () => {
@@ -564,12 +538,11 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
       if (gridPattern) {
-        ctx.globalAlpha = 0.1;
+        ctx.globalAlpha = 0.08; // Reduced opacity
         ctx.drawImage(gridPattern, 0, 0);
         ctx.globalAlpha = 1;
       }
 
-      // Apply screen shake only during gameplay
       ctx.save();
       if (state.screenShake > 0 && !gameOver) {
         const shake = state.screenShake * 2;
@@ -579,94 +552,83 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         );
       }
 
-      // Draw game elements
       if (gameStarted) {
-        // Render particles
-        renderParticles(ctx);
+        // Render active particles only
+        const activeParticles = particlePool.filter(p => p.active);
+        renderParticles(ctx, activeParticles);
 
-        // Draw projectiles
+        // Draw active projectiles only
         ctx.shadowBlur = 8;
-        projectilePool.forEach(projectile => {
-          if (!projectile.active) return;
+        const activeProjectiles = projectilePool.filter(p => p.active);
+        activeProjectiles.forEach(projectile => {
           ctx.shadowColor = '#00fff9';
-          ctx.drawImage(
-            offscreenElements.projectile,
-            Math.floor(projectile.x),
-            Math.floor(projectile.y)
-          );
-        });
-
-        // Draw enemies with glitch effect
-        enemyPool.forEach(enemy => {
-          if (!enemy.active) return;
-          
-          ctx.save();
-          ctx.translate(
-            Math.floor(enemy.x + enemy.width/2), 
-            Math.floor(enemy.y + enemy.height/2)
-          );
-          
-          // Add subtle glitch effect
-          if (Math.random() < 0.05) { // Reduced frequency of position glitches
-            ctx.translate(
-              (Math.random() * 2 - 1), // Reduced glitch amplitude
-              (Math.random() * 2 - 1)
+          if (offscreenElements) {
+            ctx.drawImage(
+              offscreenElements.projectile,
+              Math.floor(projectile.x),
+              Math.floor(projectile.y)
             );
           }
-          
+        });
+
+        // Draw active enemies only
+        const activeEnemies = enemyPool.filter(e => e.active);
+        activeEnemies.forEach(enemy => {
+          ctx.save();
+          ctx.translate(
+            Math.floor(enemy.x + enemy.width/2),
+            Math.floor(enemy.y + enemy.height/2)
+          );
           ctx.rotate(enemy.rotation || 0);
           ctx.scale(enemy.scale || 1, enemy.scale || 1);
           
-          // Draw with chromatic aberration effect
-          if (Math.random() < 0.05) { // Keep rare strong glitch
-            ctx.globalAlpha = 0.3;
-            ctx.translate(2, 0);
+          ctx.shadowColor = '#ff0066';
+          ctx.shadowBlur = 10;
+          
+          if (offscreenElements) {
             ctx.drawImage(
               offscreenElements.enemy,
               -enemy.width/2,
               -enemy.height/2
             );
-            ctx.translate(-4, 0);
-            ctx.drawImage(
-              offscreenElements.enemy,
-              -enemy.width/2,
-              -enemy.height/2
-            );
-            ctx.globalAlpha = 1;
           }
-          
-          ctx.drawImage(
-            offscreenElements.enemy,
-            -enemy.width/2,
-            -enemy.height/2
-          );
-          
           ctx.restore();
         });
 
         // Draw player
-        if (!gameOver) {
-          ctx.shadowColor = state.player.color;
-          ctx.shadowBlur = 12;
-          ctx.fillStyle = state.player.color;
-          ctx.fillRect(
-            Math.floor(state.player.x), 
-            Math.floor(state.player.y), 
-            state.player.width, 
-            state.player.height
-          );
-        }
+        ctx.save();
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = state.player.color;
+        ctx.fillStyle = state.player.color;
+        
+        // Simple player shape
+        const px = Math.floor(state.player.x);
+        const py = Math.floor(state.player.y);
+        
+        ctx.beginPath();
+        ctx.moveTo(px + state.player.width/2, py);
+        ctx.lineTo(px, py + state.player.height);
+        ctx.lineTo(px + state.player.width, py + state.player.height);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.shadowBlur = 0;
+        ctx.restore();
 
-        // Draw HUD
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = '#f07e41';
-        ctx.fillStyle = '#f07e41';
+        // UI elements
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#fff';
         ctx.font = '20px monospace';
         ctx.textAlign = 'left';
         ctx.fillText(`Score: ${state.score}`, 10, 30);
         ctx.fillText(`Level: ${state.level}`, 10, 60);
+        
+        // High score
+        if (highScore > 0) {
+          ctx.fillText(`High: ${highScore}`, 10, 90);
+        }
 
-        // Draw power-ups with improved visibility
+        // Draw active powerups
         state.powerups.forEach(powerup => {
           if (!powerup.active) return;
           
@@ -677,7 +639,6 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
           );
           ctx.rotate(powerup.rotation || 0);
           
-          // Draw power-up background glow
           ctx.shadowColor = powerup.color;
           ctx.shadowBlur = 15;
           ctx.fillStyle = powerup.color;
@@ -685,7 +646,6 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
           ctx.arc(0, 0, 10, 0, Math.PI * 2);
           ctx.fill();
           
-          // Draw power-up symbol
           ctx.strokeStyle = '#ffffff';
           ctx.lineWidth = 2;
           ctx.shadowColor = '#ffffff';
@@ -693,30 +653,19 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
           
           switch (powerup.powerupType) {
             case 'rapidfire':
-              // Draw lightning bolt
               ctx.beginPath();
               ctx.moveTo(-5, -8);
               ctx.lineTo(2, -2);
               ctx.lineTo(-2, 2);
               ctx.lineTo(5, 8);
               ctx.stroke();
-              // Add extra detail
-              ctx.beginPath();
-              ctx.moveTo(-3, -6);
-              ctx.lineTo(0, -4);
-              ctx.stroke();
               break;
             case 'shield':
-              // Draw shield with inner detail
               ctx.beginPath();
               ctx.arc(0, 0, 8, 0, Math.PI * 2);
               ctx.stroke();
-              ctx.beginPath();
-              ctx.arc(0, 0, 4, 0, Math.PI * 2);
-              ctx.stroke();
               break;
             case 'timeslow':
-              // Draw clock with more detail
               ctx.beginPath();
               ctx.arc(0, 0, 8, 0, Math.PI * 2);
               ctx.moveTo(0, 0);
@@ -727,25 +676,18 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
               break;
           }
           
-          // Add pulsing effect
-          const pulseScale = 1 + Math.sin(performance.now() / 200) * 0.1;
-          ctx.scale(pulseScale, pulseScale);
-          
           ctx.restore();
         });
 
-        // Draw active effects with improved visibility
+        // Draw active effects (simplified)
         if (state.activeEffects.shield) {
           ctx.save();
           ctx.strokeStyle = POWERUP_COLORS.shield;
           ctx.lineWidth = 2;
           ctx.shadowColor = POWERUP_COLORS.shield;
-          ctx.shadowBlur = 15;
+          ctx.shadowBlur = 10;
           
-          // Draw double shield rings
-          const pulseScale = 1 + Math.sin(performance.now() / 200) * 0.1;
-          const radius = 30 * pulseScale;
-          
+          const radius = 30;
           ctx.beginPath();
           ctx.arc(
             state.player.x + state.player.width/2,
@@ -755,63 +697,26 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
             Math.PI * 2
           );
           ctx.stroke();
-          
-          ctx.beginPath();
-          ctx.arc(
-            state.player.x + state.player.width/2,
-            state.player.y + state.player.height/2,
-            radius - 5,
-            0,
-            Math.PI * 2
-          );
-          ctx.stroke();
           ctx.restore();
         }
 
-        // Visual indicator for rapid fire
         if (state.activeEffects.rapidfire > 0) {
           ctx.save();
           ctx.strokeStyle = POWERUP_COLORS.rapidfire;
           ctx.shadowColor = POWERUP_COLORS.rapidfire;
-          ctx.shadowBlur = 15;
+          ctx.shadowBlur = 10;
           ctx.lineWidth = 2;
           
-          // Draw energy lines around player
-          for (let i = 0; i < 3; i++) {
-            const offset = Math.sin(performance.now() * 5 + i * Math.PI / 1.5) * 5;
+          for (let i = 0; i < 2; i++) {
+            const offset = Math.sin(performance.now() * 5 + i * Math.PI) * 3;
             ctx.beginPath();
-            ctx.moveTo(state.player.x - 5 + i * 25, state.player.y - 5 + offset);
-            ctx.lineTo(state.player.x + 5 + i * 15, state.player.y - 15 + offset);
+            ctx.moveTo(state.player.x - 5 + i * 30, state.player.y - 5 + offset);
+            ctx.lineTo(state.player.x + 5 + i * 20, state.player.y - 15 + offset);
             ctx.stroke();
           }
           ctx.restore();
         }
 
-        // Visual indicator for time slow
-        if (state.activeEffects.timeslow > 0) {
-          ctx.save();
-          ctx.strokeStyle = POWERUP_COLORS.timeslow;
-          ctx.shadowColor = POWERUP_COLORS.timeslow;
-          ctx.shadowBlur = 15;
-          ctx.lineWidth = 1;
-          
-          // Draw time slow waves
-          for (let i = 0; i < 3; i++) {
-            const scale = 1 + (i * 0.5) + Math.sin(performance.now() * 2) * 0.2;
-            ctx.beginPath();
-            ctx.arc(
-              state.player.x + state.player.width/2,
-              state.player.y + state.player.height/2,
-              40 * scale,
-              0,
-              Math.PI * 2
-            );
-            ctx.stroke();
-          }
-          ctx.restore();
-        }
-
-        // Draw combo
         if (state.combo > 1) {
           ctx.save();
           ctx.fillStyle = '#f07e41';
@@ -820,11 +725,6 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
           ctx.font = '24px monospace';
           ctx.textAlign = 'center';
           ctx.fillText(`${state.combo}x COMBO!`, CANVAS_WIDTH/2, 100);
-          
-          // Draw combo timer bar
-          const barWidth = 100;
-          const remainingWidth = (state.comboTimer / 1000) * barWidth;
-          ctx.fillRect(CANVAS_WIDTH/2 - barWidth/2, 110, remainingWidth, 4);
           ctx.restore();
         }
       }
@@ -839,10 +739,20 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         ctx.fillStyle = '#f07e41';
         ctx.font = '30px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH/2, CANVAS_HEIGHT/2 - 20);
+        ctx.fillText('GAME OVER', CANVAS_WIDTH/2, CANVAS_HEIGHT/2 - 40);
         ctx.font = '20px monospace';
-        ctx.fillText(`Score: ${state.score}`, CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 20);
-        ctx.fillText('Press SPACE to restart', CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 60);
+        ctx.fillText(`Score: ${state.score}`, CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
+        
+        if (state.score > highScore) {
+          ctx.fillStyle = '#00ff00';
+          ctx.fillText('NEW HIGH SCORE!', CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 30);
+        } else if (highScore > 0) {
+          ctx.fillStyle = '#888';
+          ctx.fillText(`High: ${highScore}`, CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 30);
+        }
+        
+        ctx.fillStyle = '#f07e41';
+        ctx.fillText('Press SPACE to restart', CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 70);
       } else if (!gameStarted) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -852,117 +762,124 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         ctx.fillStyle = '#f07e41';
         ctx.font = '30px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('Press SPACE to Start', CANVAS_WIDTH/2, CANVAS_HEIGHT/2 - 20);
+        ctx.fillText('Press SPACE to Start', CANVAS_WIDTH/2, CANVAS_HEIGHT/2 - 30);
         ctx.font = '20px monospace';
-        ctx.fillText('← → to move', CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 20);
-        ctx.fillText('SPACE to shoot', CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 50);
-        ctx.fillText('Don\'t let enemies reach the bottom!', CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 90);
+        ctx.fillText('← → to move', CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 10);
+        ctx.fillText('SPACE to shoot', CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 40);
+        
+        if (highScore > 0) {
+          ctx.fillStyle = '#888';
+          ctx.fillText(`High Score: ${highScore}`, CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 80);
+        }
       }
 
       ctx.restore();
     };
 
+    const renderParticles = (ctx: CanvasRenderingContext2D, activeParticles: Particle[]) => {
+      if (activeParticles.length === 0) return;
+      
+      ctx.shadowBlur = 8;
+      activeParticles.forEach(particle => {
+        const alpha = particle.life / particle.maxLife;
+        ctx.globalAlpha = alpha;
+        ctx.shadowColor = particle.color;
+        ctx.fillStyle = particle.color;
+        
+        if (particle.type === 'cube') {
+          ctx.fillRect(
+            Math.floor(particle.x),
+            Math.floor(particle.y),
+            particle.width,
+            particle.height
+          );
+        } else {
+          ctx.beginPath();
+          ctx.strokeStyle = particle.color;
+          ctx.lineWidth = 2;
+          ctx.moveTo(particle.x, particle.y);
+          ctx.lineTo(
+            particle.x - particle.dx * 2,
+            particle.y - particle.dy * 2
+          );
+          ctx.stroke();
+        }
+      });
+      
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+    };
+
     const gameLoop = (currentTime: number) => {
-      // Performance optimization: Use requestAnimationFrame's timestamp
       const deltaTime = Math.min(currentTime - gameStateRef.current.lastTime, MAX_FRAME_TIME);
       gameStateRef.current.lastTime = currentTime;
 
-      // Calculate FPS
       gameStateRef.current.fps = 1000 / deltaTime;
 
-      // Update physics if game is running
       if (gameStarted && !gameOver) {
         gameStateRef.current.accumulator += deltaTime;
         
-        // Performance optimization: Limit physics updates per frame
         let updates = 0;
-        const maxUpdates = 3;
+        const maxUpdates = 2; // Reduced from 3
         
         while (gameStateRef.current.accumulator >= FRAME_TIME && updates < maxUpdates) {
           updatePhysics(FRAME_TIME);
-          updateParticles(FRAME_TIME / 1000); // Add particle updates to physics loop
           gameStateRef.current.accumulator -= FRAME_TIME;
           updates++;
         }
         
-        // If we're falling behind, just discard the remaining time
         if (updates === maxUpdates) {
           gameStateRef.current.accumulator = 0;
         }
-      } else {
-        // Even when game is over, continue updating particles for death animations
-        updateParticles(deltaTime / 1000);
       }
 
       render();
-      frameId = requestAnimationFrame(gameLoop);
+      frameIdRef.current = requestAnimationFrame(gameLoop);
     };
 
-    // Add event listeners
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
 
-    // Start game loop
-    frameId = requestAnimationFrame(gameLoop);
+    frameIdRef.current = requestAnimationFrame(gameLoop);
 
     return () => {
       console.log('Cleaning up game component...');
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
-      cancelAnimationFrame(frameId);
+      if (frameIdRef.current) {
+        cancelAnimationFrame(frameIdRef.current);
+      }
+      // Clean up pools when component unmounts
+      resetPools();
     };
   }, [isVisible, handleKeyDown, handleKeyUp, gameStarted, gameOver]);
 
-  // Log state changes
-  useEffect(() => {
-    console.log('Game state changed - gameStarted:', gameStarted, 'gameOver:', gameOver);
-  }, [gameStarted, gameOver]);
-
   const createExplosion = (x: number, y: number, color: string) => {
     const state = gameStateRef.current;
-    if (gameOver) return; // Don't create explosions if game is over
+    if (gameOver) return;
     
-    // Create bouncing cube particles
-    for (let i = 0; i < 12; i++) { // Increased number of particles
+    // Create fewer particles for better performance
+    for (let i = 0; i < 8; i++) { // Reduced from 12
       const particle = particlePool.find(p => !p.active);
       if (!particle) continue;
 
-      const angle = (Math.PI * 2 * i) / 12;
-      const speed = 5 + Math.random() * 3; // Increased speed
+      const angle = (Math.PI * 2 * i) / 8;
+      const speed = 5 + Math.random() * 3;
       
-      particle.x = x - 3; // Center the explosion
+      particle.x = x - 3;
       particle.y = y - 3;
       particle.dx = Math.cos(angle) * speed;
-      particle.dy = Math.sin(angle) * speed - 6; // Stronger initial upward velocity
+      particle.dy = Math.sin(angle) * speed - 6;
       particle.color = color;
-      particle.life = 90; // Longer life for full bounce animation
-      particle.maxLife = 90;
+      particle.life = 60; // Reduced from 90
+      particle.maxLife = 60;
       particle.active = true;
       particle.type = 'cube';
       particle.width = 6;
       particle.height = 6;
     }
 
-    // Add flash particles
-    for (let i = 0; i < 8; i++) {
-      const particle = particlePool.find(p => !p.active);
-      if (!particle) continue;
-
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 4 + Math.random() * 3;
-      
-      particle.x = x;
-      particle.y = y;
-      particle.dx = Math.cos(angle) * speed;
-      particle.dy = Math.sin(angle) * speed;
-      particle.color = '#fff';
-      particle.life = 20;
-      particle.maxLife = 20;
-      particle.active = true;
-      particle.type = 'spark';
-    }
-
-    state.screenShake = 8;
+    state.screenShake = 6; // Reduced from 8
   };
 
   const checkCollision = (obj1: GameObject, obj2: GameObject) => {
@@ -978,7 +895,6 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     const state = gameStateRef.current;
     const now = performance.now();
     
-    // Update combo
     if (now - state.lastComboTime < 1000) {
       state.combo++;
       state.comboMultiplier = 1 + Math.floor(state.combo / 3) * 0.5;
@@ -989,13 +905,10 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     state.lastComboTime = now;
     state.comboTimer = 1000;
 
-    // Calculate score with combo
     state.score += Math.floor(100 * state.comboMultiplier);
     
-    // Create explosion
     createExplosion(enemy.x + enemy.width/2, enemy.y + enemy.height/2, enemy.color);
     
-    // Chance to spawn power-up
     spawnPowerup();
   };
 
@@ -1003,25 +916,25 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     const state = gameStateRef.current;
     switch (type) {
       case 'rapidfire':
-        state.activeEffects.rapidfire = 5000; // 5 seconds
+        state.activeEffects.rapidfire = 5000;
         break;
       case 'shield':
         state.activeEffects.shield = true;
         state.shieldHealth = 2;
         break;
       case 'timeslow':
-        state.activeEffects.timeslow = 3000; // 3 seconds
+        state.activeEffects.timeslow = 3000;
         break;
     }
   };
 
   const createPowerupEffect = (x: number, y: number, color: string) => {
-    // Create expanding ring effect
-    for (let i = 0; i < 20; i++) {
+    // Create fewer particles
+    for (let i = 0; i < 10; i++) { // Reduced from 20
       const particle = particlePool.find(p => !p.active);
       if (!particle) continue;
 
-      const angle = (Math.PI * 2 * i) / 20;
+      const angle = (Math.PI * 2 * i) / 10;
       const speed = 4;
       
       particle.x = x;
@@ -1038,7 +951,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
 
   const spawnPowerup = () => {
     const state = gameStateRef.current;
-    if (Math.random() > 0.1) return; // 10% chance on enemy death
+    if (Math.random() > 0.15) return; // Increased chance to 15%
 
     const powerup = {
       x: Math.random() * (CANVAS_WIDTH - 20),

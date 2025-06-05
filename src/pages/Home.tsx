@@ -10,14 +10,20 @@ interface HomeProps {
 
 const GlitchText = ({ children, delay = 0, initialReveal = false }: { children: string, delay?: number, initialReveal?: boolean }) => {
   const [isRevealed, setIsRevealed] = React.useState(false);
+  const timerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   React.useEffect(() => {
     if (initialReveal) {
-      const timer = setTimeout(() => {
+      timerRef.current = setTimeout(() => {
         setIsRevealed(true);
-      }, 4500); // Wait for initial mega-glitch to finish
-      return () => clearTimeout(timer);
+      }, 4500);
     }
+    
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
   }, [initialReveal]);
 
   if (!isRevealed && initialReveal) {
@@ -55,6 +61,9 @@ const StartupSequence = () => {
   const [showGlitch, setShowGlitch] = React.useState(false);
   const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const glitchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = React.useRef(true);
+  
   const fullText = `
 > INITIALIZING NEURAL INTERFACE...
 > LOADING CORE MODULES...
@@ -86,25 +95,50 @@ STATUS: ACTIVE
     let currentIndex = 0;
 
     intervalRef.current = setInterval(() => {
+      if (!isMountedRef.current) return;
+      
       if (currentIndex < fullText.length) {
         currentText += fullText[currentIndex];
         setText(currentText);
         currentIndex++;
+        
         if (Math.random() < 0.1) {
           setShowGlitch(true);
-          timeoutRef.current = setTimeout(() => setShowGlitch(false), 150);
+          if (glitchTimeoutRef.current) {
+            clearTimeout(glitchTimeoutRef.current);
+          }
+          glitchTimeoutRef.current = setTimeout(() => {
+            if (isMountedRef.current) {
+              setShowGlitch(false);
+            }
+          }, 150);
         }
       } else {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        timeoutRef.current = setTimeout(() => setIsComplete(true), 1000);
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        timeoutRef.current = setTimeout(() => {
+          if (isMountedRef.current) {
+            setIsComplete(true);
+          }
+        }, 1000);
       }
     }, 30);
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      isMountedRef.current = false;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      if (glitchTimeoutRef.current) {
+        clearTimeout(glitchTimeoutRef.current);
+      }
     };
-  }, []);
+  }, [fullText]);
 
   if (isComplete) return null;
 
@@ -131,27 +165,43 @@ STATUS: ACTIVE
 const TerminalText = ({ children, delay = 0 }: { children: string, delay?: number }) => {
   const [text, setText] = React.useState('');
   const [isComplete, setIsComplete] = React.useState(false);
+  const isMountedRef = React.useRef(true);
+  const timerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
   React.useEffect(() => {
-    const timer = setTimeout(() => {
+    timerRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+      
       let currentText = '';
       let currentIndex = 0;
 
-      const interval = setInterval(() => {
+      intervalRef.current = setInterval(() => {
+        if (!isMountedRef.current) return;
+        
         if (currentIndex < children.length) {
           currentText += children[currentIndex];
           setText(currentText);
           currentIndex++;
         } else {
-          clearInterval(interval);
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
           setIsComplete(true);
         }
       }, 50);
-
-      return () => clearInterval(interval);
     }, delay);
 
-    return () => clearTimeout(timer);
+    return () => {
+      isMountedRef.current = false;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
   }, [children, delay]);
 
   return (
