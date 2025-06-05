@@ -316,8 +316,8 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     state.screenShake = isEnemy ? 8 : 12;
   }, []);
 
-  // Pre-render expensive grid background once
-  const createBackgroundGrid = useCallback(() => {
+  // Pre-render expensive grid background once - FIX: Use useEffect to only run once
+  useEffect(() => {
     if (!backgroundGridRef.current) {
       backgroundGridRef.current = document.createElement('canvas');
       backgroundGridRef.current.width = CANVAS_WIDTH;
@@ -349,8 +349,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         bgCtx.shadowBlur = 0;
       }
     }
-    return backgroundGridRef.current;
-  }, []);
+  }, []); // Only run once on mount
 
   // Game update loop
   const updateGame = useCallback((deltaTime: number) => {
@@ -490,7 +489,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     const state = gameStateRef.current;
     
     // Use pre-rendered background grid (MASSIVE performance gain)
-    const bgGrid = createBackgroundGrid();
+    const bgGrid = backgroundGridRef.current;
     if (bgGrid) {
       ctx.drawImage(bgGrid, 0, 0);
     } else {
@@ -687,7 +686,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     
     ctx.restore();
     ctx.shadowBlur = 0;
-  }, [highScore, createBackgroundGrid]);
+  }, [highScore, backgroundGridRef]);
 
   // Main game loop
   const gameLoop = useCallback((currentTime: number) => {
