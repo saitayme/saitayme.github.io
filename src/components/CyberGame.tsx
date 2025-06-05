@@ -682,6 +682,10 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     canvas.style.width = displayWidth + 'px';
     canvas.style.height = displayHeight + 'px';
     
+    // DEBUG: Log canvas dimensions to understand what's happening
+    console.log(`Canvas setup - DPR: ${dpr}, Internal: ${canvas.width}x${canvas.height}, CSS: ${canvas.style.width}x${canvas.style.height}`);
+    console.log(`Viewport: ${window.innerWidth}x${window.innerHeight}, Screen: ${screen.width}x${screen.height}`);
+    
     canvas.focus();
     
     const ctx = canvas.getContext('2d', {
@@ -723,9 +727,9 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center"
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
         >
-          <div className="relative bg-cyber-black p-6 rounded-lg border-2 border-primary">
+          <div className="relative bg-cyber-black p-6 rounded-lg border-2 border-primary max-w-fit max-h-fit">
             <button
               onClick={onClose}
               className="absolute top-4 right-4 text-gray-400 hover:text-primary text-xl"
@@ -737,11 +741,13 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
             
             <canvas
               ref={canvasRef}
-              className="border-2 border-primary rounded-lg focus:outline-none bg-black"
+              className="border-2 border-primary rounded-lg focus:outline-none bg-black block"
               style={{ 
-                imageRendering: 'pixelated', // Prevent blurry scaling
-                maxWidth: '100%',
-                maxHeight: '100%'
+                width: '800px',
+                height: '600px',
+                imageRendering: 'pixelated',
+                display: 'block',
+                margin: '0 auto'
               }}
               tabIndex={0}
             />
