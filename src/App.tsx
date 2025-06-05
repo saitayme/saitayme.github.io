@@ -1,12 +1,12 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
-import Navbar from '@components/Navbar'
+import Navbar from '@/components/Navbar'
 import { initGA, usePageTracking } from '@/utils/analytics'
 import { useEffect } from 'react'
-// import BackgroundAnimation from '@components/BackgroundAnimation' // Temporarily disabled for performance
-// import CyberGame from '@components/CyberGame' // Temporarily disabled for deployment
-import LoadingScreen from '@components/LoadingScreen'
+// import BackgroundAnimation from '@/components/BackgroundAnimation' // Temporarily disabled for performance
+// import CyberGame from '@/components/CyberGame' // Temporarily disabled for deployment
+import LoadingScreen from '@/components/LoadingScreen'
 
 // Lazy load pages
 const Home = lazy(() => import('./pages/Home'))
