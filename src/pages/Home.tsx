@@ -1,18 +1,17 @@
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { FaGamepad, FaTools } from 'react-icons/fa';
-
-import React from 'react';
 
 interface HomeProps {
   onPlayGame: () => void;
 }
 
 const GlitchText = ({ children, delay = 0, initialReveal = false }: { children: string, delay?: number, initialReveal?: boolean }) => {
-  const [isRevealed, setIsRevealed] = React.useState(false);
-  const timerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [isRevealed, setIsRevealed] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (initialReveal) {
       timerRef.current = setTimeout(() => {
         setIsRevealed(true);
@@ -56,13 +55,13 @@ const GlitchText = ({ children, delay = 0, initialReveal = false }: { children: 
 };
 
 const StartupSequence = () => {
-  const [isComplete, setIsComplete] = React.useState(false);
-  const [text, setText] = React.useState('');
-  const [showGlitch, setShowGlitch] = React.useState(false);
-  const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
-  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  const glitchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  const mountedRef = React.useRef(true);
+  const [isComplete, setIsComplete] = useState(false);
+  const [text, setText] = useState('');
+  const [showGlitch, setShowGlitch] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const glitchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const mountedRef = useRef(true);
   
   // Simplified, faster text for better performance
   const fullText = `> INITIALIZING NEURAL INTERFACE...
@@ -88,7 +87,7 @@ STATUS: ACTIVE
 > INITIATING DISPLAY...
 > ACCESS GRANTED_`;
 
-  React.useEffect(() => {
+  useEffect(() => {
     mountedRef.current = true;
     let currentText = '';
     let currentIndex = 0;
@@ -164,14 +163,14 @@ STATUS: ACTIVE
 };
 
 const TerminalText = ({ children, delay = 0 }: { children: string, delay?: number }) => {
-  const [text, setText] = React.useState('');
-  const [isComplete, setIsComplete] = React.useState(false);
-  const [hasStarted, setHasStarted] = React.useState(false);
-  const mountedRef = React.useRef(true);
-  const timerRef = React.useRef<NodeJS.Timeout | null>(null);
-  const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [text, setText] = useState('');
+  const [isComplete, setIsComplete] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
+  const mountedRef = useRef(true);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     mountedRef.current = true;
     
     timerRef.current = setTimeout(() => {
