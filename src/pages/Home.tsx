@@ -337,7 +337,6 @@ const Home = ({ onPlayGame }: HomeProps) => {
 
       {/* Features Section */}
       <section className="py-20 bg-cyber-dark relative overflow-hidden">
-        <AnimatedGrid />
         <div className="cyber-container relative z-10">
           <div className="grid md:grid-cols-2 gap-12">
             <motion.div

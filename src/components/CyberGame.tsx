@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Optimized game constants
+// Game constants
 const CANVAS_WIDTH = 400;
 const CANVAS_HEIGHT = 600;
 const PLAYER_SPEED = 240;
@@ -10,7 +10,7 @@ const ENEMY_SPEED = 80;
 const FIRE_RATE = 200; // ms between shots
 const ENEMY_SPAWN_RATE = 1200; // ms between enemy spawns
 
-// Minimal game objects for performance
+// Game objects with more properties for cool effects
 interface GameEntity {
   x: number;
   y: number;
@@ -31,6 +31,9 @@ interface Enemy extends GameEntity {
   width: number;
   height: number;
   health: number;
+  rotation: number;
+  scale: number;
+  hue: number;
 }
 
 interface Particle extends GameEntity {
@@ -38,9 +41,12 @@ interface Particle extends GameEntity {
   vy: number;
   life: number;
   maxLife: number;
+  size: number;
+  color: string;
+  type: 'explosion' | 'spark' | 'trail';
 }
 
-// Game state - keep it minimal for performance
+// Game state with screen shake
 interface GameState {
   player: Player;
   projectiles: Projectile[];
@@ -53,12 +59,15 @@ interface GameState {
   lastShot: number;
   lastEnemySpawn: number;
   keys: { [key: string]: boolean };
+  screenShake: number;
+  combo: number;
+  comboTimer: number;
 }
 
-// Object pools for zero-allocation gaming
-const MAX_PROJECTILES = 10;
-const MAX_ENEMIES = 8;
-const MAX_PARTICLES = 15;
+// Object pools
+const MAX_PROJECTILES = 15;
+const MAX_ENEMIES = 10;
+const MAX_PARTICLES = 30;
 
 const createProjectilePool = (): Projectile[] => {
   const pool: Projectile[] = [];
@@ -71,7 +80,10 @@ const createProjectilePool = (): Projectile[] => {
 const createEnemyPool = (): Enemy[] => {
   const pool: Enemy[] = [];
   for (let i = 0; i < MAX_ENEMIES; i++) {
-    pool.push({ x: 0, y: 0, width: 20, height: 20, health: 1, active: false });
+    pool.push({ 
+      x: 0, y: 0, width: 24, height: 24, health: 1, active: false,
+      rotation: 0, scale: 1, hue: 0
+    });
   }
   return pool;
 };
@@ -79,7 +91,10 @@ const createEnemyPool = (): Enemy[] => {
 const createParticlePool = (): Particle[] => {
   const pool: Particle[] = [];
   for (let i = 0; i < MAX_PARTICLES; i++) {
-    pool.push({ x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 30, active: false });
+    pool.push({ 
+      x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 60, active: false,
+      size: 2, color: '#ff0066', type: 'explosion'
+    });
   }
   return pool;
 };
@@ -127,7 +142,10 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     gameOver: false,
     lastShot: 0,
     lastEnemySpawn: 0,
-    keys: {}
+    keys: {},
+    screenShake: 0,
+    combo: 0,
+    comboTimer: 0
   });
 
   // Load high score on mount
@@ -159,6 +177,9 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     state.gameOver = false;
     state.lastShot = 0;
     state.lastEnemySpawn = 0;
+    state.screenShake = 0;
+    state.combo = 0;
+    state.comboTimer = 0;
   }, []);
 
   // Input handling
@@ -187,6 +208,9 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
           projectile.y = state.player.y;
           projectile.active = true;
           state.lastShot = now;
+          
+          // Create muzzle flash particles
+          createMuzzleFlash(projectile.x + 2, projectile.y);
         }
       }
     } else {
@@ -198,7 +222,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     gameStateRef.current.keys[e.code] = false;
   }, []);
 
-  // Spawn enemy
+  // Spawn enemy with cool effects
   const spawnEnemy = useCallback(() => {
     const state = gameStateRef.current;
     const enemy = state.enemies.find(e => !e.active);
@@ -207,37 +231,108 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       enemy.y = -enemy.height;
       enemy.health = 1;
       enemy.active = true;
+      enemy.rotation = Math.random() * Math.PI * 2;
+      enemy.scale = 0.8 + Math.random() * 0.4;
+      enemy.hue = Math.random() * 60 + 300; // Purple to red range
+      
+      // Spawn particles on enemy appearance
+      createSpawnEffect(enemy.x + enemy.width/2, enemy.y + enemy.height/2);
+    }
+  }, []);
+
+  // Create muzzle flash effect
+  const createMuzzleFlash = useCallback((x: number, y: number) => {
+    const state = gameStateRef.current;
+    for (let i = 0; i < 3; i++) {
+      const particle = state.particles.find(p => !p.active);
+      if (!particle) break;
+      
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 30 + Math.random() * 20;
+      
+      particle.x = x;
+      particle.y = y;
+      particle.vx = Math.cos(angle) * speed;
+      particle.vy = Math.sin(angle) * speed - 30;
+      particle.life = 8;
+      particle.maxLife = 8;
+      particle.size = 1 + Math.random() * 2;
+      particle.color = '#00fff9';
+      particle.type = 'spark';
+      particle.active = true;
+    }
+  }, []);
+
+  // Create spawn effect
+  const createSpawnEffect = useCallback((x: number, y: number) => {
+    const state = gameStateRef.current;
+    for (let i = 0; i < 6; i++) {
+      const particle = state.particles.find(p => !p.active);
+      if (!particle) break;
+      
+      const angle = (Math.PI * 2 * i) / 6;
+      const speed = 40 + Math.random() * 20;
+      
+      particle.x = x;
+      particle.y = y;
+      particle.vx = Math.cos(angle) * speed;
+      particle.vy = Math.sin(angle) * speed;
+      particle.life = 20;
+      particle.maxLife = 20;
+      particle.size = 2 + Math.random() * 2;
+      particle.color = '#ff0066';
+      particle.type = 'explosion';
+      particle.active = true;
     }
   }, []);
 
   // Create explosion particles
-  const createExplosion = useCallback((x: number, y: number) => {
+  const createExplosion = useCallback((x: number, y: number, isEnemy: boolean = true) => {
     const state = gameStateRef.current;
-    const particleCount = 5;
+    const particleCount = isEnemy ? 12 : 8;
     
     for (let i = 0; i < particleCount; i++) {
       const particle = state.particles.find(p => !p.active);
       if (!particle) break;
       
-      const angle = (Math.PI * 2 * i) / particleCount;
+      const angle = (Math.PI * 2 * i) / particleCount + Math.random() * 0.5;
       const speed = 60 + Math.random() * 40;
       
       particle.x = x;
       particle.y = y;
       particle.vx = Math.cos(angle) * speed;
       particle.vy = Math.sin(angle) * speed;
-      particle.life = 30;
-      particle.maxLife = 30;
+      particle.life = 40 + Math.random() * 20;
+      particle.maxLife = particle.life;
+      particle.size = 2 + Math.random() * 3;
+      particle.color = isEnemy ? '#ff0066' : '#f07e41';
+      particle.type = 'explosion';
       particle.active = true;
     }
+    
+    // Screen shake
+    state.screenShake = isEnemy ? 8 : 12;
   }, []);
 
-  // Game update loop - optimized for 60fps
+  // Game update loop
   const updateGame = useCallback((deltaTime: number) => {
     const state = gameStateRef.current;
     if (!state.gameStarted || state.gameOver) return;
     
-    const dt = deltaTime / 1000; // Convert to seconds
+    const dt = deltaTime / 1000;
+    
+    // Reduce screen shake
+    if (state.screenShake > 0) {
+      state.screenShake *= 0.9;
+    }
+    
+    // Update combo timer
+    if (state.comboTimer > 0) {
+      state.comboTimer -= deltaTime;
+      if (state.comboTimer <= 0) {
+        state.combo = 0;
+      }
+    }
     
     // Update player movement
     if (state.keys['ArrowLeft'] && state.player.x > 0) {
@@ -254,17 +349,36 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       if (projectile.y < 0) {
         projectile.active = false;
       }
+      
+      // Create trail particles
+      if (Math.random() < 0.3) {
+        const particle = state.particles.find(p => !p.active);
+        if (particle) {
+          particle.x = projectile.x + 2;
+          particle.y = projectile.y + 12;
+          particle.vx = (Math.random() - 0.5) * 10;
+          particle.vy = 20;
+          particle.life = 15;
+          particle.maxLife = 15;
+          particle.size = 1;
+          particle.color = '#00fff9';
+          particle.type = 'trail';
+          particle.active = true;
+        }
+      }
     });
     
-    // Update enemies
+    // Update enemies with rotation and scale
     state.enemies.forEach(enemy => {
       if (!enemy.active) return;
       enemy.y += ENEMY_SPEED * dt;
+      enemy.rotation += dt * 2;
+      enemy.scale = 0.9 + Math.sin(performance.now() * 0.005 + enemy.hue) * 0.1;
       
       // Check enemy-player collision
       if (checkCollision(enemy, state.player)) {
         state.gameOver = true;
-        createExplosion(state.player.x + state.player.width / 2, state.player.y + state.player.height / 2);
+        createExplosion(state.player.x + state.player.width / 2, state.player.y + state.player.height / 2, false);
         return;
       }
       
@@ -274,11 +388,17 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       }
     });
     
-    // Update particles
+    // Update particles with physics
     state.particles.forEach(particle => {
       if (!particle.active) return;
       particle.x += particle.vx * dt;
       particle.y += particle.vy * dt;
+      
+      // Apply gravity to explosion particles
+      if (particle.type === 'explosion') {
+        particle.vy += 150 * dt;
+      }
+      
       particle.life--;
       if (particle.life <= 0) {
         particle.active = false;
@@ -293,8 +413,19 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         if (checkCollision(projectile, enemy)) {
           projectile.active = false;
           enemy.active = false;
-          state.score += 100;
-          createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+          
+          // Combo system
+          if (state.comboTimer > 0) {
+            state.combo++;
+          } else {
+            state.combo = 1;
+          }
+          state.comboTimer = 1500; // 1.5 seconds to maintain combo
+          
+          const points = 100 * Math.max(1, state.combo);
+          state.score += points;
+          
+          createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, true);
           
           // Level progression
           if (state.score > 0 && state.score % 1000 === 0) {
@@ -309,73 +440,169 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     const spawnRate = Math.max(ENEMY_SPAWN_RATE - state.level * 100, 400);
     if (now - state.lastEnemySpawn > spawnRate) {
       const activeEnemies = state.enemies.filter(e => e.active).length;
-      if (activeEnemies < 3) {
+      if (activeEnemies < 4) {
         spawnEnemy();
         state.lastEnemySpawn = now;
       }
     }
-  }, [spawnEnemy, createExplosion]);
+  }, [spawnEnemy, createExplosion, createMuzzleFlash, createSpawnEffect]);
 
-  // Optimized render function
+  // Enhanced render function with cool effects
   const render = useCallback((ctx: CanvasRenderingContext2D) => {
     const state = gameStateRef.current;
     
-    // Clear canvas efficiently
+    // Clear canvas
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
-    // Draw simple grid
-    ctx.strokeStyle = 'rgba(240, 126, 65, 0.1)';
+    // Draw enhanced grid with glow
+    ctx.strokeStyle = 'rgba(240, 126, 65, 0.2)';
     ctx.lineWidth = 1;
+    ctx.shadowBlur = 5;
+    ctx.shadowColor = '#f07e41';
     ctx.beginPath();
-    for (let x = 0; x < CANVAS_WIDTH; x += 50) {
+    for (let x = 0; x < CANVAS_WIDTH; x += 40) {
       ctx.moveTo(x, 0);
       ctx.lineTo(x, CANVAS_HEIGHT);
     }
-    for (let y = 0; y < CANVAS_HEIGHT; y += 50) {
+    for (let y = 0; y < CANVAS_HEIGHT; y += 40) {
       ctx.moveTo(0, y);
       ctx.lineTo(CANVAS_WIDTH, y);
     }
     ctx.stroke();
+    ctx.shadowBlur = 0;
+    
+    // Apply screen shake
+    ctx.save();
+    if (state.screenShake > 0) {
+      const shakeX = (Math.random() - 0.5) * state.screenShake;
+      const shakeY = (Math.random() - 0.5) * state.screenShake;
+      ctx.translate(shakeX, shakeY);
+    }
     
     if (state.gameStarted && !state.gameOver) {
-      // Draw particles
-      ctx.fillStyle = '#ff0066';
+      // Draw particles with glow effects
       state.particles.forEach(particle => {
         if (!particle.active) return;
         const alpha = particle.life / particle.maxLife;
+        
         ctx.globalAlpha = alpha;
-        ctx.fillRect(particle.x - 2, particle.y - 2, 4, 4);
+        ctx.fillStyle = particle.color;
+        ctx.shadowBlur = particle.size * 3;
+        ctx.shadowColor = particle.color;
+        
+        if (particle.type === 'spark') {
+          // Draw sparks as lines
+          ctx.strokeStyle = particle.color;
+          ctx.lineWidth = particle.size;
+          ctx.beginPath();
+          ctx.moveTo(particle.x, particle.y);
+          ctx.lineTo(particle.x - particle.vx * 0.1, particle.y - particle.vy * 0.1);
+          ctx.stroke();
+        } else {
+          // Draw explosions and trails as circles
+          ctx.beginPath();
+          ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
       });
       ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
       
-      // Draw projectiles
+      // Draw projectiles with glow
       ctx.fillStyle = '#00fff9';
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = '#00fff9';
       state.projectiles.forEach(projectile => {
         if (!projectile.active) return;
         ctx.fillRect(projectile.x, projectile.y, projectile.width, projectile.height);
       });
+      ctx.shadowBlur = 0;
       
-      // Draw enemies
-      ctx.fillStyle = '#ff0066';
+      // Draw enemies with rotation, scaling and glow
       state.enemies.forEach(enemy => {
         if (!enemy.active) return;
-        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+        
+        ctx.save();
+        ctx.translate(enemy.x + enemy.width/2, enemy.y + enemy.height/2);
+        ctx.rotate(enemy.rotation);
+        ctx.scale(enemy.scale, enemy.scale);
+        
+        // Enemy glow
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = `hsl(${enemy.hue}, 100%, 50%)`;
+        ctx.fillStyle = `hsl(${enemy.hue}, 100%, 50%)`;
+        
+        // Draw diamond shape
+        ctx.beginPath();
+        ctx.moveTo(0, -enemy.height/2);
+        ctx.lineTo(enemy.width/2, 0);
+        ctx.lineTo(0, enemy.height/2);
+        ctx.lineTo(-enemy.width/2, 0);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Add inner details
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
       });
       
-      // Draw player
-      ctx.fillStyle = '#f07e41';
-      ctx.fillRect(state.player.x, state.player.y, state.player.width, state.player.height);
+      // Draw player with enhanced effects
+      ctx.save();
+      ctx.translate(state.player.x + state.player.width/2, state.player.y + state.player.height/2);
       
-      // Draw UI
+      // Player glow
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#f07e41';
+      ctx.fillStyle = '#f07e41';
+      
+      // Draw ship shape
+      ctx.beginPath();
+      ctx.moveTo(0, -state.player.height/2);
+      ctx.lineTo(-state.player.width/2, state.player.height/2);
+      ctx.lineTo(-state.player.width/4, state.player.height/3);
+      ctx.lineTo(state.player.width/4, state.player.height/3);
+      ctx.lineTo(state.player.width/2, state.player.height/2);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Add engine glow
+      ctx.fillStyle = '#00fff9';
+      ctx.shadowColor = '#00fff9';
+      ctx.fillRect(-6, state.player.height/3, 3, 8);
+      ctx.fillRect(3, state.player.height/3, 3, 8);
+      
+      ctx.restore();
+      ctx.shadowBlur = 0;
+      
+      // Enhanced UI with glow
       ctx.fillStyle = '#ffffff';
       ctx.font = '16px monospace';
       ctx.textAlign = 'left';
+      ctx.shadowBlur = 3;
+      ctx.shadowColor = '#ffffff';
       ctx.fillText(`Score: ${state.score}`, 10, 25);
       ctx.fillText(`Level: ${state.level}`, 10, 45);
       if (highScore > 0) {
         ctx.fillText(`High: ${highScore}`, 10, 65);
       }
+      
+      // Combo display
+      if (state.combo > 1) {
+        ctx.fillStyle = '#f07e41';
+        ctx.font = 'bold 20px monospace';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = '#f07e41';
+        ctx.shadowBlur = 8;
+        ctx.fillText(`${state.combo}x COMBO!`, CANVAS_WIDTH/2, 80);
+      }
+      
+      ctx.shadowBlur = 0;
     }
     
     // Draw game states
@@ -384,44 +611,56 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       
       ctx.fillStyle = '#f07e41';
-      ctx.font = '24px monospace';
+      ctx.font = '28px monospace';
       ctx.textAlign = 'center';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#f07e41';
       ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40);
-      ctx.font = '16px monospace';
+      ctx.font = '18px monospace';
       ctx.fillText(`Score: ${state.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
       
       if (state.score > highScore) {
         ctx.fillStyle = '#00ff00';
+        ctx.shadowColor = '#00ff00';
         ctx.fillText('NEW HIGH SCORE!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 15);
       } else if (highScore > 0) {
         ctx.fillStyle = '#888888';
+        ctx.shadowBlur = 3;
         ctx.fillText(`High: ${highScore}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 15);
       }
       
       ctx.fillStyle = '#f07e41';
+      ctx.shadowColor = '#f07e41';
       ctx.fillText('Press SPACE to restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
     } else if (!state.gameStarted) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       
       ctx.fillStyle = '#f07e41';
-      ctx.font = '20px monospace';
+      ctx.font = '24px monospace';
       ctx.textAlign = 'center';
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = '#f07e41';
       ctx.fillText('CYBER DEFENDER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40);
       ctx.font = '16px monospace';
+      ctx.shadowBlur = 6;
       ctx.fillText('Press SPACE to start', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
       ctx.fillText('← → to move, SPACE to shoot', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 15);
       
       if (highScore > 0) {
         ctx.fillStyle = '#888888';
+        ctx.shadowBlur = 3;
         ctx.fillText(`High Score: ${highScore}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
       }
     }
+    
+    ctx.restore();
+    ctx.shadowBlur = 0;
   }, [highScore]);
 
   // Main game loop
   const gameLoop = useCallback((currentTime: number) => {
-    const deltaTime = Math.min(currentTime - lastTimeRef.current, 33.33); // Cap at ~30fps minimum
+    const deltaTime = Math.min(currentTime - lastTimeRef.current, 33.33);
     lastTimeRef.current = currentTime;
     
     const canvas = canvasRef.current;
@@ -436,7 +675,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     animationRef.current = requestAnimationFrame(gameLoop);
   }, [updateGame, render]);
 
-  // Setup and cleanup
+  // Setup and cleanup - CRITICAL: only one game loop per instance
   useEffect(() => {
     if (!isVisible) return;
     
@@ -454,9 +693,6 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     });
     
     if (!ctx) return;
-    
-    // Optimize context
-    ctx.imageSmoothingEnabled = false;
     
     // Add event listeners
     window.addEventListener('keydown', handleKeyDown);
@@ -500,13 +736,13 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
               style={{ 
                 width: `${CANVAS_WIDTH}px`, 
                 height: `${CANVAS_HEIGHT}px`,
-                imageRendering: 'pixelated'
+                imageRendering: 'auto'
               }}
               tabIndex={0}
             />
             
             <div className="mt-4 text-center text-gray-400 text-sm font-mono">
-              Optimized • 60 FPS • Zero Allocation
+              Enhanced • Screen Shake • Glow Effects • Combo System
             </div>
           </div>
         </motion.div>
