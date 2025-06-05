@@ -128,6 +128,8 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
+  const contextRef = useRef<CanvasRenderingContext2D | null>(null);
+  const backgroundGridRef = useRef<HTMLCanvasElement | null>(null); // Pre-rendered grid
   const [highScore, setHighScore] = useState(0);
 
   // Initialize game state
@@ -314,6 +316,42 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     state.screenShake = isEnemy ? 8 : 12;
   }, []);
 
+  // Pre-render expensive grid background once
+  const createBackgroundGrid = useCallback(() => {
+    if (!backgroundGridRef.current) {
+      backgroundGridRef.current = document.createElement('canvas');
+      backgroundGridRef.current.width = CANVAS_WIDTH;
+      backgroundGridRef.current.height = CANVAS_HEIGHT;
+      
+      const bgCtx = backgroundGridRef.current.getContext('2d');
+      if (bgCtx) {
+        // Clear background
+        bgCtx.fillStyle = '#0a0a0a';
+        bgCtx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        // Draw grid once with reduced complexity for performance
+        bgCtx.strokeStyle = 'rgba(240, 126, 65, 0.1)';
+        bgCtx.lineWidth = 1;
+        bgCtx.shadowBlur = 3; // Reduced shadow for performance
+        bgCtx.shadowColor = '#f07e41';
+        bgCtx.beginPath();
+        
+        // Reduced grid density for performance
+        for (let x = 0; x < CANVAS_WIDTH; x += 80) { // Double spacing
+          bgCtx.moveTo(x, 0);
+          bgCtx.lineTo(x, CANVAS_HEIGHT);
+        }
+        for (let y = 0; y < CANVAS_HEIGHT; y += 80) { // Double spacing
+          bgCtx.moveTo(0, y);
+          bgCtx.lineTo(CANVAS_WIDTH, y);
+        }
+        bgCtx.stroke();
+        bgCtx.shadowBlur = 0;
+      }
+    }
+    return backgroundGridRef.current;
+  }, []);
+
   // Game update loop
   const updateGame = useCallback((deltaTime: number) => {
     const state = gameStateRef.current;
@@ -447,30 +485,19 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     }
   }, [spawnEnemy, createExplosion, createMuzzleFlash, createSpawnEffect]);
 
-  // Enhanced render function with cool effects
+  // Enhanced render function with smart optimizations
   const render = useCallback((ctx: CanvasRenderingContext2D) => {
     const state = gameStateRef.current;
     
-    // Clear canvas
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    
-    // Draw enhanced grid with glow
-    ctx.strokeStyle = 'rgba(240, 126, 65, 0.2)';
-    ctx.lineWidth = 1;
-    ctx.shadowBlur = 5;
-    ctx.shadowColor = '#f07e41';
-    ctx.beginPath();
-    for (let x = 0; x < CANVAS_WIDTH; x += 40) {
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, CANVAS_HEIGHT);
+    // Use pre-rendered background grid (MASSIVE performance gain)
+    const bgGrid = createBackgroundGrid();
+    if (bgGrid) {
+      ctx.drawImage(bgGrid, 0, 0);
+    } else {
+      // Fallback simple background
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
-    for (let y = 0; y < CANVAS_HEIGHT; y += 40) {
-      ctx.moveTo(0, y);
-      ctx.lineTo(CANVAS_WIDTH, y);
-    }
-    ctx.stroke();
-    ctx.shadowBlur = 0;
     
     // Apply screen shake
     ctx.save();
@@ -481,15 +508,19 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     }
     
     if (state.gameStarted && !state.gameOver) {
-      // Draw particles with glow effects
+      // Draw particles with optimized glow effects
       state.particles.forEach(particle => {
         if (!particle.active) return;
         const alpha = particle.life / particle.maxLife;
         
         ctx.globalAlpha = alpha;
         ctx.fillStyle = particle.color;
-        ctx.shadowBlur = particle.size * 3;
-        ctx.shadowColor = particle.color;
+        
+        // Reduced shadow blur for performance
+        if (alpha > 0.5) {
+          ctx.shadowBlur = particle.size * 2; // Reduced from *3
+          ctx.shadowColor = particle.color;
+        }
         
         if (particle.type === 'spark') {
           // Draw sparks as lines
@@ -509,9 +540,9 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       ctx.globalAlpha = 1;
       ctx.shadowBlur = 0;
       
-      // Draw projectiles with glow
+      // Draw projectiles with optimized glow
       ctx.fillStyle = '#00fff9';
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 6; // Reduced from 8
       ctx.shadowColor = '#00fff9';
       state.projectiles.forEach(projectile => {
         if (!projectile.active) return;
@@ -519,7 +550,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       });
       ctx.shadowBlur = 0;
       
-      // Draw enemies with rotation, scaling and glow
+      // Draw enemies with optimized effects
       state.enemies.forEach(enemy => {
         if (!enemy.active) return;
         
@@ -528,8 +559,8 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         ctx.rotate(enemy.rotation);
         ctx.scale(enemy.scale, enemy.scale);
         
-        // Enemy glow
-        ctx.shadowBlur = 12;
+        // Optimized enemy glow
+        ctx.shadowBlur = 8; // Reduced from 12
         ctx.shadowColor = `hsl(${enemy.hue}, 100%, 50%)`;
         ctx.fillStyle = `hsl(${enemy.hue}, 100%, 50%)`;
         
@@ -542,7 +573,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         ctx.closePath();
         ctx.fill();
         
-        // Add inner details
+        // Add inner details (simplified)
         ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
         ctx.shadowBlur = 0;
         ctx.beginPath();
@@ -552,12 +583,12 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         ctx.restore();
       });
       
-      // Draw player with enhanced effects
+      // Draw player with optimized effects
       ctx.save();
       ctx.translate(state.player.x + state.player.width/2, state.player.y + state.player.height/2);
       
-      // Player glow
-      ctx.shadowBlur = 15;
+      // Optimized player glow
+      ctx.shadowBlur = 10; // Reduced from 15
       ctx.shadowColor = '#f07e41';
       ctx.fillStyle = '#f07e41';
       
@@ -580,11 +611,11 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       ctx.restore();
       ctx.shadowBlur = 0;
       
-      // Enhanced UI with glow
+      // Enhanced UI with optimized glow
       ctx.fillStyle = '#ffffff';
       ctx.font = '16px monospace';
       ctx.textAlign = 'left';
-      ctx.shadowBlur = 3;
+      ctx.shadowBlur = 2; // Reduced from 3
       ctx.shadowColor = '#ffffff';
       ctx.fillText(`Score: ${state.score}`, 10, 25);
       ctx.fillText(`Level: ${state.level}`, 10, 45);
@@ -598,14 +629,14 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         ctx.font = 'bold 20px monospace';
         ctx.textAlign = 'center';
         ctx.shadowColor = '#f07e41';
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 6; // Reduced from 8
         ctx.fillText(`${state.combo}x COMBO!`, CANVAS_WIDTH/2, 80);
       }
       
       ctx.shadowBlur = 0;
     }
     
-    // Draw game states
+    // Draw game states with optimized glow
     if (state.gameOver) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -613,7 +644,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       ctx.fillStyle = '#f07e41';
       ctx.font = '28px monospace';
       ctx.textAlign = 'center';
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 8; // Reduced from 10
       ctx.shadowColor = '#f07e41';
       ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40);
       ctx.font = '18px monospace';
@@ -625,7 +656,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
         ctx.fillText('NEW HIGH SCORE!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 15);
       } else if (highScore > 0) {
         ctx.fillStyle = '#888888';
-        ctx.shadowBlur = 3;
+        ctx.shadowBlur = 2; // Reduced from 3
         ctx.fillText(`High: ${highScore}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 15);
       }
       
@@ -639,24 +670,24 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       ctx.fillStyle = '#f07e41';
       ctx.font = '24px monospace';
       ctx.textAlign = 'center';
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 8; // Reduced from 12
       ctx.shadowColor = '#f07e41';
       ctx.fillText('CYBER DEFENDER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40);
       ctx.font = '16px monospace';
-      ctx.shadowBlur = 6;
+      ctx.shadowBlur = 4; // Reduced from 6
       ctx.fillText('Press SPACE to start', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
       ctx.fillText('← → to move, SPACE to shoot', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 15);
       
       if (highScore > 0) {
         ctx.fillStyle = '#888888';
-        ctx.shadowBlur = 3;
+        ctx.shadowBlur = 2; // Reduced from 3
         ctx.fillText(`High Score: ${highScore}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
       }
     }
     
     ctx.restore();
     ctx.shadowBlur = 0;
-  }, [highScore]);
+  }, [highScore, createBackgroundGrid]);
 
   // Main game loop
   const gameLoop = useCallback((currentTime: number) => {
@@ -665,8 +696,13 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     
     updateGame(deltaTime);
     
+    // Use cached context if available
+    if (contextRef.current) {
+      render(contextRef.current);
+    }
+    
     animationRef.current = requestAnimationFrame(gameLoop);
-  }, [updateGame]);
+  }, [updateGame, render]);
 
   // Setup and cleanup - CRITICAL: only one game loop per instance
   useEffect(() => {
@@ -687,24 +723,8 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     
     if (!ctx) return;
     
-    // Cache the context in a ref to avoid repeated getContext calls
-    const ctxRef = useRef(ctx);
-    
-    // Optimized render function that uses cached context
-    const renderFrame = () => {
-      render(ctxRef.current);
-    };
-    
-    // Replace the render function in gameLoop to use cached context
-    const optimizedGameLoop = (currentTime: number) => {
-      const deltaTime = Math.min(currentTime - lastTimeRef.current, 33.33);
-      lastTimeRef.current = currentTime;
-      
-      updateGame(deltaTime);
-      renderFrame();
-      
-      animationRef.current = requestAnimationFrame(optimizedGameLoop);
-    };
+    // Cache the context in component-level ref
+    contextRef.current = ctx;
     
     // Add event listeners
     window.addEventListener('keydown', handleKeyDown);
@@ -712,7 +732,7 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
     
     // Start game loop
     lastTimeRef.current = performance.now();
-    animationRef.current = requestAnimationFrame(optimizedGameLoop);
+    animationRef.current = requestAnimationFrame(gameLoop);
     
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
@@ -720,8 +740,10 @@ const CyberGame = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => 
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
+      // Clear cached context on cleanup
+      contextRef.current = null;
     };
-  }, [isVisible, handleKeyDown, handleKeyUp, updateGame, render]);
+  }, [isVisible, handleKeyDown, handleKeyUp, gameLoop]);
 
   return (
     <AnimatePresence>
